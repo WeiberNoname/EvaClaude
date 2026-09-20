@@ -1,0 +1,24 @@
+/Binaries/
+/DerivedDataCache/
+/Intermediate/
+/Saved/
+/Builds/
+/Build/Windows/FileOpenOrder/
+/*.lnk
+/.vs/
+*.sln
+*.VC.db
+
+# Local tooling and credentials
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.key
+
+# Generated crash and profiling output
+*.dmp
+*.utrace
