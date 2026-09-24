@@ -1,4 +1,5 @@
 #include "EvaGame.h"
+#include "Components/AudioComponent.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 #include "Framework/Application/SlateApplication.h"
@@ -111,7 +112,13 @@ void AEvaGameMode::CloseComms()
     if(Pilot()) if(auto* PC=Cast<APlayerController>(Pilot()->GetController())) { PC->SetInputMode(FInputModeGameOnly()); PC->bShowMouseCursor=false; }
 }
 void AEvaGameMode::SubmitComms(const FString& Message) { if(CommsPanel.IsValid()) CommsPanel->Send(Message); }
-void AEvaGameMode::EndPlay(const EEndPlayReason::Type Reason) { CloseComms(); Super::EndPlay(Reason); }
+void AEvaGameMode::EndPlay(const EEndPlayReason::Type Reason)
+{
+    CloseComms();
+    if(CityAmbience) { CityAmbience->Stop(); CityAmbience->DestroyComponent(); }
+    if(CityHum) { CityHum->Stop(); CityHum->DestroyComponent(); }
+    Super::EndPlay(Reason);
+}
 FString AEvaGameMode::ReplyAsuka(const FString& Message)
 {
     if(!Wingman || !Wingman->bDeployed) return "Unit-02 isn't deployed. Open the free-roam operation and call me there.";

@@ -206,9 +206,11 @@ void AEvaGameMode::StartBattle()
     MissionTime=0; EnemyClock=12; Telegraph=0; VulnerableTime=0; ActiveCharger=0;
     MeleeCooldown=0; LanceCooldown=0; AttackCount=0;
     BuildingsLost=0;
+    ResetDistrict(); SetDistrictLighting(false);
     for(auto& B:Buildings)
     {
         B.bDestroyed=false;
+        B.Mesh->SetVisibility(true);
         FVector Scale=B.Mesh->GetComponentScale(); Scale.Z=B.Center.Z/50.f;
         B.Mesh->SetWorldScale3D(Scale); B.Mesh->SetWorldLocation(B.Center);
         B.Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);

@@ -16,6 +16,10 @@ class UStaticMesh;
 class UMaterialInstanceDynamic;
 class SEvaComms;
 class AEvaWingman;
+class UInstancedStaticMeshComponent;
+class UAudioComponent;
+class USoundAttenuation;
+class ADirectionalLight;
 
 UCLASS()
 class UEvaWorldSave : public USaveGame
@@ -128,6 +132,11 @@ struct FEvaBuilding
     TArray<UStaticMeshComponent*> Windows;
     FVector Center;
     bool bDestroyed = false;
+    USceneComponent* DistrictRoot = nullptr;
+    UStaticMeshComponent* Rubble = nullptr;
+    int32 DamageStage = 0;
+    float CollapseTime = 0;
+    FLinearColor FacadeColor;
 };
 
 struct FEvaEffect
@@ -270,6 +279,45 @@ public:
     FVector CompanionStart=FVector::ZeroVector;
     void TickCompanionTest(float Dt);
     void BuildCity();
+    void BuildCentralDistrict();
+    void BuildCentralTower(FVector Base,float Height,int32 Style);
+    void TickDistrict(float Dt);
+    void SetDistrictLighting(bool Enabled);
+    void DamageDistrictBuilding(FEvaBuilding& Building);
+    void ResetDistrict();
+    bool DistrictInteract();
+    FString DistrictPrompt() const;
+    UMaterialInstanceDynamic* DistrictMaterial(FLinearColor Color,int32 Type,float Glow=0);
+    UStaticMeshComponent* CityBox(FVector Position,FVector Scale,FLinearColor Color,int32 Type=0,USceneComponent* Parent=nullptr,bool Collision=false,float Glow=0);
+    UInstancedStaticMeshComponent* CityInstances(USceneComponent* Parent,FLinearColor Color,int32 Type=0,float Glow=0);
+    void CitySign(USceneComponent* Parent,FVector Position,const FString& Text,float Size,FColor Color,FRotator Rotation=FRotator(0,-90,0));
+    void DistrictSound(const TCHAR* Name,FVector Position,float Volume=1);
+    void DistrictDust(FVector Position);
+    UPROPERTY() UMaterialInterface* CitySurface;
+    UPROPERTY() UMaterialInterface* DustSurface;
+    UPROPERTY() TMap<FString,UMaterialInstanceDynamic*> CityMaterials;
+    UPROPERTY() USoundAttenuation* CityAttenuation;
+    UPROPERTY() UAudioComponent* CityAmbience;
+    UPROPERTY() UAudioComponent* CityHum;
+    UPROPERTY() ADirectionalLight* WorldSun;
+    UPROPERTY() ADirectionalLight* WorldFill;
+    UPROPERTY() USceneComponent* CityArmoryRoot;
+    UPROPERTY() USceneComponent* CityGunRoot;
+    UPROPERTY() UStaticMeshComponent* CityDoorLeft;
+    UPROPERTY() UStaticMeshComponent* CityDoorRight;
+    UPROPERTY() TArray<UStaticMeshComponent*> SupplyLamps;
+    TArray<FVector> SupplyPositions;
+    FVector CityArmoryPosition=FVector::ZeroVector;
+    float CityArmoryOpen=0, CityArmoryStock=0, CityStepClock=0;
+    bool bCityArmoryOpening=false;
+    int32 SupplyMask=0;
+    bool bDistrictTest=false, bDistrictDone=false, bDistrictOK=true;
+    int32 DistrictTestStep=0, DistrictTestBuilding=INDEX_NONE;
+    float DistrictTestTime=0, DistrictCollapseStamp=0;
+    int32 DistrictMeshCount=0;
+    double DistrictFrameStamp=0;
+    TArray<double> DistrictFrames;
+    void TickDistrictTest(float Dt);
     void StartOpenWorld();
     void BuildOpenWorld();
     void TickOpenWorld(float Dt);
@@ -363,6 +411,7 @@ public:
     int32 ImpactShots = 0;
     bool bImpactTest = false;
     void BuildDepot();
+    void BuildCannon(USceneComponent* Root);
     USceneComponent* NewSceneRoot(FVector Position);
     void SetChapter(EEvaChapter Next);
     void AdvanceStory();

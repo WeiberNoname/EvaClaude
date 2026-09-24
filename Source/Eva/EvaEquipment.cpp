@@ -6,8 +6,9 @@
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInstanceDynamic.h"
 
-static void MakeCannon(AEvaGameMode* G,USceneComponent* Root)
+void AEvaGameMode::BuildCannon(USceneComponent* Root)
 {
+    auto* G=this;
     const FLinearColor Steel(.13f,.19f,.23f), Dark(.025f,.035f,.05f), Accent(.64f,.82f,.1f);
     G->Shape("Cube",FVector(230,0,0),FVector(6,2.3f,2.8f),Steel,0,Root);
     G->Shape("Cube",FVector(-90,0,-60),FVector(2.8f,1.7f,1.3f),Dark,0,Root);
@@ -36,7 +37,7 @@ void AEvaPawn::BuildEquipment()
     KnifeRoot->SetVisibility(false,true);
     CannonRoot=G->NewSceneRoot(FVector::ZeroVector);
     CannonRoot->AttachToComponent(RootComponent,FAttachmentTransformRules::KeepRelativeTransform);
-    MakeCannon(G,CannonRoot);
+    G->BuildCannon(CannonRoot);
     CannonRoot->SetRelativeScale3D(FVector(.65f));
     KnifeRoot->SetRelativeScale3D(FVector(.75f));
     CannonRoot->SetVisibility(false,true);
@@ -165,7 +166,7 @@ void AEvaGameMode::BuildDepot()
     DepotLift=Shape("Cube",FVector(0,0,200),FVector(15,13,1.3f),FLinearColor(.13f,.17f,.2f),0,Root);
     DepotGunRoot=NewSceneRoot(DepotPosition+FVector(0,0,450));
     DepotGunRoot->SetWorldRotation(FRotator(0,-90,0));
-    MakeCannon(this,DepotGunRoot);
+    BuildCannon(DepotGunRoot);
     // Second power station extends the usable battlefield without infinite reserve.
     Chargers={Anchor,FVector(-1600,1800,100)};
     for(int32 I=0;I<Chargers.Num();++I)

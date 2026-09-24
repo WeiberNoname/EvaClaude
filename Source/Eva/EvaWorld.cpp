@@ -36,6 +36,7 @@ void AEvaGameMode::BuildOpenWorld()
         for(int X=-2;X<=2;++X) for(int Y=-2;Y<=2;++Y)
         {
             if(X==0 || Y==0) continue;
+            if(D==0) continue; // Central uses the detailed, instanced architectural kit.
             float H=D==0 ? Rand.FRandRange(3200,7000) : D==2 ? Rand.FRandRange(900,2200) : Rand.FRandRange(1600,3800);
             FEvaBuilding B; B.Center=Base+FVector(X*4800,Y*4800,H*.5f);
             FLinearColor Color=D==0 ? FLinearColor(.065f,.10f,.15f) : D==1 ? FLinearColor(.14f,.17f,.18f) : D==2 ? FLinearColor(.14f,.17f,.11f) : FLinearColor(.17f,.11f,.09f);
@@ -76,8 +77,8 @@ void AEvaGameMode::BuildOpenWorld()
         Shape("Cube",Port+FVector(1400,800,450),FVector(16,8,9),FLinearColor(.18f,.28f,.29f));
         Shape("Cylinder",Districts[3]+FVector(13000,I*1900-6000,1000),FVector(17,17,20),FLinearColor(.21f,.24f,.26f));
     }
-    for(int I=0;I<14;++I)
-        Shape("Sphere",WorldCenter+FVector(-47000,I*7200-42000,-600),FVector(100,100,80+I%4*20),FLinearColor(.055f,.12f,.085f));
+    Shape("TerrainRidge",WorldCenter+FVector(-53000,0,-300),FVector(230,1100,220),FLinearColor(.065f,.105f,.075f));
+    BuildCentralDistrict();
 }
 
 void AEvaGameMode::StartOpenWorld()
@@ -87,15 +88,17 @@ void AEvaGameMode::StartOpenWorld()
     bShooterTest=FParse::Param(FCommandLine::Get(),TEXT("EvaShooterTest"));
     bCompanionTest=FParse::Param(FCommandLine::Get(),TEXT("EvaCompanionTest"));
     bDynamicTest=FParse::Param(FCommandLine::Get(),TEXT("EvaDynamicTest"));
+    bDistrictTest=FParse::Param(FCommandLine::Get(),TEXT("EvaDistrictTest"));
     BuildOpenWorld(); Chargers.Empty();
+    SetDistrictLighting(true);
     for(FVector D:Districts) Chargers.Add(D+FVector(0,0,100));
     Rules.Battery=120; Rules.bConnected=true; ActiveCharger=0;
     Pilot()->SetActorLocation(Districts[0]+FVector(0,-1800,780)); Pilot()->bLock=false;
     Pilot()->Loadout.AcquireCannon(); bCannonTaken=true;
     AngelRoot->SetVisibility(false,true); EnemyShield->SetVisibility(false,true);
     SurveyMask=0; CompletedContracts=0;
-    FString Slot=bWorldTest ? TEXT("EvaFreeRoam_Test") : bShooterTest ? TEXT("EvaShooter_Test") : bDynamicTest ? TEXT("EvaDynamic_Test") : bCompanionTest ? TEXT("EvaCompanion_Test") : TEXT("EvaFreeRoam");
-    if(!bWorldTest && !bShooterTest && !bDynamicTest && !bCompanionTest && UGameplayStatics::DoesSaveGameExist(Slot,0)) if(auto* Save=Cast<UEvaWorldSave>(UGameplayStatics::LoadGameFromSlot(Slot,0)))
+    FString Slot=bWorldTest ? TEXT("EvaFreeRoam_Test") : bShooterTest ? TEXT("EvaShooter_Test") : bDynamicTest ? TEXT("EvaDynamic_Test") : bCompanionTest ? TEXT("EvaCompanion_Test") : bDistrictTest ? TEXT("EvaDistrict_Test") : TEXT("EvaFreeRoam");
+    if(!bWorldTest && !bShooterTest && !bDynamicTest && !bCompanionTest && !bDistrictTest && UGameplayStatics::DoesSaveGameExist(Slot,0)) if(auto* Save=Cast<UEvaWorldSave>(UGameplayStatics::LoadGameFromSlot(Slot,0)))
     { SurveyMask=Save->SurveyMask&15; CompletedContracts=FMath::Max(0,Save->Contracts); }
     SetNotice("FREE ROAM // M MAP / N WAYPOINT / SHIFT SPRINT / E SERVICE OR OPTIONAL ENCOUNTER");
     if(bShooterTest || FParse::Param(FCommandLine::Get(),TEXT("EvaShamshel")))
@@ -113,11 +116,12 @@ void AEvaGameMode::SaveWorldProgress()
 {
     auto* Save=Cast<UEvaWorldSave>(UGameplayStatics::CreateSaveGameObject(UEvaWorldSave::StaticClass()));
     Save->SurveyMask=SurveyMask; Save->Contracts=CompletedContracts;
-    if(!UGameplayStatics::SaveGameToSlot(Save,bWorldTest ? TEXT("EvaFreeRoam_Test") : bShooterTest ? TEXT("EvaShooter_Test") : bDynamicTest ? TEXT("EvaDynamic_Test") : bCompanionTest ? TEXT("EvaCompanion_Test") : TEXT("EvaFreeRoam"),0)) SetNotice("PROGRESS SAVE FAILED // CURRENT SESSION CONTINUES");
+    if(!UGameplayStatics::SaveGameToSlot(Save,bWorldTest ? TEXT("EvaFreeRoam_Test") : bShooterTest ? TEXT("EvaShooter_Test") : bDynamicTest ? TEXT("EvaDynamic_Test") : bCompanionTest ? TEXT("EvaCompanion_Test") : bDistrictTest ? TEXT("EvaDistrict_Test") : TEXT("EvaFreeRoam"),0)) SetNotice("PROGRESS SAVE FAILED // CURRENT SESSION CONTINUES");
 }
 FString AEvaGameMode::WorldPrompt() const
 {
     auto* P=Pilot(); if(!P) return "";
+    const FString District=DistrictPrompt(); if(!District.IsEmpty()) return District;
     for(int I=0;I<Districts.Num();++I)
     {
         if(FVector::Dist2D(P->GetActorLocation(),Districts[I])<2400) return "E / SERVICE: REPAIR + AMMO + UMBILICAL";
@@ -128,6 +132,7 @@ FString AEvaGameMode::WorldPrompt() const
 bool AEvaGameMode::WorldInteract()
 {
     auto* P=Pilot(); if(!P) return false;
+    if(DistrictInteract()) return true;
     for(int I=0;I<Districts.Num();++I)
     {
         if(FVector::Dist2D(P->GetActorLocation(),Districts[I])<2400)

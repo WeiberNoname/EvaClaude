@@ -56,6 +56,8 @@ edit.connect_material_property(metal, '', unreal.MaterialProperty.MP_METALLIC)
 edit.recompile_material(material)
 unreal.EditorAssetLibrary.save_asset(path)
 from pathlib import Path
+import runpy
+runpy.run_path(str(Path(__file__).parent / 'build_city_materials.py'))
 for wav in (Path(__file__).parent / 'GeneratedAudio').glob('*.wav'):
     task = unreal.AssetImportTask()
     task.set_editor_property('filename', str(wav))

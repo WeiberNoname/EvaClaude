@@ -269,7 +269,7 @@ UStaticMeshComponent* AEvaGameMode::Shape(const FString& Kind,FVector P,FVector 
         VisualRoot->RegisterComponent();
     }
     auto* Mesh=NewObject<UStaticMeshComponent>(Parent ? Parent->GetOwner() : VisualWorld);
-    const FString MeshPath=(Kind.StartsWith("Armor") || Kind=="AngelMask" || Kind=="RamielCrystal") ? "/Game/Models/"+Kind+"."+Kind : "/Engine/BasicShapes/"+Kind+"."+Kind;
+    const FString MeshPath=(Kind.StartsWith("Armor") || Kind.StartsWith("Terrain") || Kind=="AngelMask" || Kind=="RamielCrystal") ? "/Game/Models/"+Kind+"."+Kind : "/Engine/BasicShapes/"+Kind+"."+Kind;
     if(!MeshCache.Contains(Kind)) MeshCache.Add(Kind,LoadObject<UStaticMesh>(nullptr,*MeshPath));
     Mesh->SetStaticMesh(MeshCache[Kind]);
     Mesh->SetMobility(EComponentMobility::Movable);
@@ -345,7 +345,7 @@ void AEvaGameMode::BeginPlay()
     bChapterAuto=FParse::Param(FCommandLine::Get(),TEXT("EvaChapterTest"));
     bChapterSmoke=FParse::Param(FCommandLine::Get(),TEXT("EvaChapterShots"));
     if(bChapterAuto || bChapterSmoke) StartMission();
-    else if(FParse::Param(FCommandLine::Get(),TEXT("EvaWorld")) || FParse::Param(FCommandLine::Get(),TEXT("EvaWorldTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaShamshel")) || FParse::Param(FCommandLine::Get(),TEXT("EvaShooterTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaRamiel")) || FParse::Param(FCommandLine::Get(),TEXT("EvaDynamicTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaCompanionTest")))
+    else if(FParse::Param(FCommandLine::Get(),TEXT("EvaWorld")) || FParse::Param(FCommandLine::Get(),TEXT("EvaWorldTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaShamshel")) || FParse::Param(FCommandLine::Get(),TEXT("EvaShooterTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaRamiel")) || FParse::Param(FCommandLine::Get(),TEXT("EvaDynamicTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaCompanionTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaDistrictTest")))
     {
         static bool bWorldAutoLaunched=false;
         if(!bWorldAutoLaunched) { bWorldAutoLaunched=true; StartOpenWorld(); }
@@ -406,6 +406,7 @@ void AEvaGameMode::BuildCity()
     Shape("Cube",Anchor+FVector(0,0,1180),FVector(2.6f,2.6f,1),Lime,6.f);
     for(int I=0;I<4;++I) Shape("Cube",Anchor+FVector((I-1.5f)*210,0,40),FVector(1,8,.1f),Lime,2.f);
     auto* Sun=GetWorld()->SpawnActor<ADirectionalLight>();
+    WorldSun=Sun;
     Sun->GetLightComponent()->SetMobility(EComponentMobility::Movable);
     Cast<UDirectionalLightComponent>(Sun->GetLightComponent())->SetForwardShadingPriority(1);
     Cast<UDirectionalLightComponent>(Sun->GetLightComponent())->SetAtmosphereSunLight(true);
@@ -414,6 +415,7 @@ void AEvaGameMode::BuildCity()
     Sun->GetLightComponent()->SetIntensity(6.f);
     Sun->GetLightComponent()->SetLightColor(FLinearColor(1.f,.76f,.6f));
     auto* Fill=GetWorld()->SpawnActor<ADirectionalLight>();
+    WorldFill=Fill;
     Fill->GetLightComponent()->SetMobility(EComponentMobility::Movable);
     Fill->SetActorRotation(FRotator(-35,-140,0));
     Fill->GetLightComponent()->SetIntensity(4.5f);
@@ -511,6 +513,7 @@ void AEvaGameMode::Attack(bool bRanged,float Charge,bool PlayerAim)
     FVector End=EnemyAimPoint();
     FVector Start=P->CannonRoot->GetComponentTransform().TransformPosition(FVector(1060,0,35));
     bool Hit=HasCombatTarget(), CoreHit=true;
+    UPrimitiveComponent* HitStructure=nullptr;
     if(bRanged)
     {
         FHitResult Cover; FCollisionQueryParams Query; Query.AddIgnoredActor(P);
@@ -523,14 +526,15 @@ void AEvaGameMode::Attack(bool bRanged,float Charge,bool PlayerAim)
             Hit=Body || CoreHit;
             // A visible core receives the precision bonus even where the broad body volume overlaps it.
             End=Eye+Aim*(CoreHit ? CoreDistance : Body ? BodyDistance : 18000.f);
-            if(GetWorld()->LineTraceSingleByChannel(Cover,Eye,End,ECC_Visibility,Query)) { End=Cover.ImpactPoint; Hit=false; }
-            if(GetWorld()->LineTraceSingleByChannel(Cover,Start,End,ECC_Visibility,Query)) { End=Cover.ImpactPoint; Hit=false; }
+            if(GetWorld()->LineTraceSingleByChannel(Cover,Eye,End,ECC_Visibility,Query)) { End=Cover.ImpactPoint; Hit=false; HitStructure=Cover.GetComponent(); }
+            if(GetWorld()->LineTraceSingleByChannel(Cover,Start,End,ECC_Visibility,Query)) { End=Cover.ImpactPoint; Hit=false; HitStructure=Cover.GetComponent(); }
         }
         else if(GetWorld()->LineTraceSingleByChannel(Cover,P->GetActorLocation()+FVector(0,0,450),EnemyPosition,ECC_Visibility,Query))
         { SetNotice("FIRING LINE BLOCKED // MOVE CLEAR OF COVER"); return; }
         if(!P->Loadout.FireCannon(Rules,Charge)) { SetNotice(P->Loadout.Shells==0 ? "CANNON EMPTY // R RELOAD / E SERVICE FOR RESERVES" : "INSUFFICIENT POWER"); return; }
     }
     else if(!Rules.Spend(1.2f)) { SetNotice("INSUFFICIENT POWER"); return; }
+    if(bRanged && HitStructure) for(auto& Building:Buildings) if(Building.Mesh==HitStructure && Building.DistrictRoot) { DamageDistrictBuilding(Building); break; }
     P->bCharging=false;
     Cooldown=bRanged ? (Charge>.1f ? 1.1f : .55f) : .55f;
     EvaSound(this,bRanged ? TEXT("Lance") : TEXT("Impact"));
@@ -569,6 +573,7 @@ void AEvaGameMode::DestroyNearby(FVector P,float Radius)
     {
         if(!B.bDestroyed && FVector::Dist2D(P,B.Center)<Radius)
         {
+            if(B.DistrictRoot) { DamageDistrictBuilding(B); continue; }
             B.bDestroyed=true; ++BuildingsLost;
             B.Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
             FVector S=B.Mesh->GetRelativeScale3D(); S.Z=.8f;
@@ -585,6 +590,7 @@ void AEvaGameMode::Tick(float Dt)
     Super::Tick(Dt);
     auto* P=Pilot();
     if(!P) return;
+    TickDistrict(Dt);
     if(!bPaused) { TickChapter(Dt); TickDepot(Dt); if(Chapter==EEvaChapter::Impact) TickImpact(Dt); }
     if(bChapterAuto || bChapterSmoke) TickChapterAutomation(Dt);
     if(FParse::Param(FCommandLine::Get(),TEXT("EvaMenuShot")))
@@ -628,6 +634,7 @@ void AEvaGameMode::Tick(float Dt)
     PlayerShield->SetWorldScale3D(FVector(1));
     if(bDynamicTest) TickDynamicTest(Dt);
     if(bCompanionTest) TickCompanionTest(Dt);
+    if(bDistrictTest) TickDistrictTest(Dt);
     if(!IsActive()) return;
     MissionTime+=Dt;
     if(FParse::Param(FCommandLine::Get(),TEXT("EvaSystemsTest")))

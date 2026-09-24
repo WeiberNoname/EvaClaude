@@ -2,11 +2,24 @@
 
 A native Unreal Engine 5.7 single-player prototype with free exploration, an optional story chapter, and a separate Third Impact cinematic. Play Shinji's arrival in Tokyo-3, meet Misato, enter the hangar, deploy Unit-01, fight a humanoid Sachiel, and reach the hospital aftermath. Original procedural placeholder art and synthesized effects; no extracted anime models, music, or voice assets.
 
-![Unit-01 and Unit-02 in the playable prototype](Docs/Screenshots/EvaDuo.png)
+![Central defense district in the playable v0.9 prototype](Docs/Screenshots/DistrictSkyline.png)
 
 [Cockpit preview](Docs/Screenshots/EntryPlug08.png) · [Asuka call preview](Docs/Screenshots/AsukaCall.png) · [Verified features and limitations](VERIFICATION.md) · [Recommended development roadmap](ROADMAP.md)
 
 This repository contains the Unreal project, C++ source, authored assets, asset generators, launchers, and build scripts. Packaged executables, Unreal Engine, compiler tools, caches, and local save files are excluded. A fresh clone must be built and packaged before the one-click launchers work.
+
+## v0.9: Central defense district
+
+Central now has sixteen detailed towers with instanced windows, facade frames, rooftop equipment, concrete and glass surfaces, lane markings, crossings, streetlights, parked vehicles, overhead power lines, and a covered Geofront access tunnel. Warmer evening light and original city ambience accompany the district.
+
+[Street-level gameplay](Docs/Screenshots/DistrictStreet.png) · [Open armory and cannon elevator](Docs/Screenshots/DistrictArmory.png)
+
+- **Armory 07:** travel south from Central's green service station. Press **E** at the marked approach to retract the doors and raise the weapon elevator. Press **E** again to retrieve the cannon and refill its ammunition. The rack replenishes after twelve seconds.
+- **Emergency supply route:** follow the cyan markers along the eastern road. Three caches each restore up to 25 power and eight reserve shells. Recover all three to repair both Evas by up to 30 integrity. Each cache can be used once per deployment; redeploying resets this route.
+- **Staged destruction:** a cannon round or Angel blast damages a Central tower and knocks out facade elements. A second hit starts a two-second collapse with spatial impact audio, pooled dust, and rubble confined to the original lot. Rubble does not block the Eva. Other districts retain their existing destruction behavior.
+- **Navigation:** select Central with **N** to see its armory and nearest available cache markers. **M** shows cache locations and the route completion count.
+
+The new district is built from a reusable procedural architecture kit. Collapse is an authored transformation with visual debris, not a full structural or Chaos physics simulation. Supply progress is session-only; survey and contract totals retain their existing save behavior.
 
 ## v0.8: Unit-01, Unit-02, and pilot communications
 
@@ -142,6 +155,7 @@ From PowerShell at the project root:
 .\Scripts\VerifyShooter.ps1
 .\Scripts\VerifyDynamic.ps1
 .\Scripts\VerifyCompanion.ps1
+.\Scripts\VerifyDistrict.ps1
 ```
 
 Build, test, and package scripts accept `-Engine` for another installation directory. Building requires Unreal Engine 5.7, Visual Studio's C++ toolchain, and Windows SDK. The content bootstrap creates the shared parameterized material and startup map. The city is assembled at runtime. Character armor and Ramiel combine authored OBJ meshes imported into `/Game/Models` with engine primitives. `generate_models.py` and `import_models.py` reproduce those assets. Packaging bundles the executable, assets, and runtime dependencies and creates the local Play EVA shortcut. `VerifyChapter.ps1` checks the packaged chapter, equipment, and checkpoint reset; add `-Render` to capture scene images.
@@ -155,6 +169,8 @@ Build, test, and package scripts accept `-Engine` for another installation direc
 - `EvaImpact.cpp`: separate Third Impact cinematic, replay, and scene verification.
 - `EvaSystems.cpp`: synchronization abilities, cable strain, and audiovisual feedback.
 - `EvaWorld.cpp`: connected districts, service stations, optional encounters, saves, and world verification.
+- `EvaDistrict.cpp`: Central architecture kit, world-space materials, armory, supply route, staged collapse, and spatial audio.
+- `EvaDistrictTest.cpp`: district interactions, route clearance, destruction, restart, and combined combat frame sampling.
 - `EvaMobility.cpp`: movement integration, jumping, dashes, perspective switching, and cockpit geometry.
 - `EvaRamiel.cpp`: crystal model assembly, tracking/locked beam patterns, and counterattack windows.
 - `EvaDynamicTest.cpp`: runtime mobility, cockpit, help, Ramiel, and frame-time checks.
@@ -167,10 +183,11 @@ Build, test, and package scripts accept `-Engine` for another installation direc
 - `EvaHUD.cpp`: story captions, interaction markers, equipment HUD, and chapter results.
 - `EvaTests.cpp`: Unreal automation tests for power, damage, blocking, weapon ownership, and ammunition.
 - `Scripts/bootstrap_content.py`: repeatable editor content generation.
+- `Scripts/build_city_materials.py`: architectural surface and soft-dust material generation.
 - `Config/`: startup map, rendering, and packaging defaults.
 
 ## Scope and next production work
 
-This is a condensed chapter flow plus a finite exploration sandbox with captioned dialogue and nine original synthesized effects. It uses authored faceted armor, procedural character assembly, and component animation. Production skeletal animation and detailed character textures remain unfinished. Voice acting, full world-state saves, a full soundtrack, and further story chapters are not included. Survey/contract totals do persist. The cannon provision is a gameplay adaptation. Destruction uses geometry replacement and the cable is a visual tether, not a physics simulation. The final berserk counterattack is scripted; normal battle is player-controlled.
+This is a condensed chapter flow plus a finite exploration sandbox with captioned dialogue and fourteen original synthesized effects and ambience loops. It uses authored faceted armor, procedural character assembly, and component animation. Production skeletal animation and detailed character textures remain unfinished. Voice acting, full world-state saves, a full soundtrack, and further story chapters are not included. Survey/contract totals do persist. The cannon provision is a gameplay adaptation. Destruction uses geometry replacement and the cable is a visual tether, not a physics simulation. The final berserk counterattack is scripted; normal battle is player-controlled.
 
 The integration harness can run with `-EvaChapterTest` for a headless complete playthrough, or `-EvaChapterShots` for rendered scene captures. It visits the telephone and car, advances dialogue, recharges, opens the armory, retrieves and fires the cannon, draws the knife, damages Sachiel, and reaches the ending. Human playtesting is still needed for pacing and combat feel.

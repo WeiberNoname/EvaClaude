@@ -1,5 +1,6 @@
 """Authored faceted armor profiles; centimetres, centred around the origin."""
 from pathlib import Path
+import math
 out=Path(__file__).parent/'GeneratedModels';out.mkdir(exist_ok=True)
 # Eight corners produce broad panels with small bevels rather than cylinders.
 corners=[(1,.55),(.55,1),(-.55,1),(-1,.55),(-1,-.55),(-.55,-1),(.55,-1),(1,-.55)]
@@ -43,3 +44,25 @@ profile('ArmorHelmet01',[(-50,17,18,19,0),(-25,35,31,17,0),(0,43,37,3,0),(25,37,
 profile('ArmorHelmet02',[(-50,16,20,14,0),(-28,35,32,16,0),(0,40,43,5,0),(30,34,38,-6,0),(50,17,20,-8,0)])
 profile('ArmorShoulder02',[(-50,9,24,8,0),(-15,42,40,0,0),(25,50,50,-8,0),(50,34,43,-4,0)])
 print('Generated eleven reference-shaped Unit-01 / Unit-02 armor sections.')
+
+# An authored ridgeline replaces the former row of spheres behind the western district.
+nx, ny = 16, 100
+ridge = ['o TerrainRidge', 's 1']
+for iy in range(ny + 1):
+    v = iy / ny
+    for ix in range(nx + 1):
+        u = ix / nx
+        peak = 17 + 14 * math.sin(v * 19 + .5)**2 + 12 * math.sin(v * 47)**2
+        z = math.sin(math.pi*u)**.85 * peak
+        z += math.sin(math.pi*u) * math.sin(v*101+u*31) * 2.8
+        ridge.append(f'v {(u-.5)*100:.4f} {(v-.5)*100:.4f} {z:.4f}')
+for iy in range(ny + 1):
+    for ix in range(nx + 1):
+        ridge.append(f'vt {ix/nx:.5f} {iy/ny:.5f}')
+for iy in range(ny):
+    for ix in range(nx):
+        a = iy*(nx+1)+ix+1
+        b, c, d = a+1, a+nx+2, a+nx+1
+        ridge.extend([f'f {a}/{a} {b}/{b} {c}/{c}', f'f {a}/{a} {c}/{c} {d}/{d}'])
+(out/'TerrainRidge.obj').write_text('\n'.join(ridge)+'\n')
+print('Generated the western terrain ridgeline.')

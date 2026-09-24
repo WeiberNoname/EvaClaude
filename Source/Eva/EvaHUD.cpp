@@ -61,7 +61,7 @@ void AEvaHUD::DrawChapter(AEvaGameMode* G)
         Label("ENTER / BEGIN CHAPTER",80,693,FLinearColor(.015f,.035f,.025f),.88f);
         Label("SPACE / BATTLE PRACTICE    Z / OVERDRIVE    X / ANTI-A.T.",52,775,White,.5f);
         Label("T / THIRD IMPACT CINEMATIC",52,815,Amber,.63f);
-        Label("UNOFFICIAL FAN ADAPTATION  /  UNIT-02  /  v0.8",52,865,Muted,.45f);
+        Label("UNOFFICIAL FAN ADAPTATION  /  TOKYO-3  /  v0.9",52,865,Muted,.45f);
         return;
     }
     if(G->Chapter==EEvaChapter::Complete)
@@ -214,6 +214,17 @@ void AEvaHUD::DrawWorld(AEvaGameMode* G)
     auto* P=G->Pilot(); if(!P || G->Districts.Num()!=4) return;
     FVector Beacon=G->Districts[G->SelectedDistrict]+FVector(0,5500,1800);
     WorldMarker(Beacon,G->DistrictNames[G->SelectedDistrict]+FString::Printf(TEXT(" / %.0fm"),FVector::Dist2D(P->GetActorLocation(),Beacon)/100),Amber);
+    if(G->SelectedDistrict==0)
+    {
+        WorldMarker(G->CityArmoryPosition+FVector(0,0,4400),TEXT("07 / ARMORY"),Amber);
+        int Nearest=INDEX_NONE; float Distance=22000;
+        for(int I=0;I<G->SupplyPositions.Num();++I) if(!(G->SupplyMask&(1<<I)))
+        {
+            float D=FVector::Dist2D(P->GetActorLocation(),G->SupplyPositions[I]);
+            if(D<Distance) { Distance=D; Nearest=I; }
+        }
+        if(Nearest!=INDEX_NONE) WorldMarker(G->SupplyPositions[Nearest]+FVector(0,0,1800),FString::Printf(TEXT("SUPPLY 0%d / %.0fm"),Nearest+1,Distance/100),Cyan);
+    }
     int Count=0; for(int I=0;I<4;++I) if(G->SurveyMask&(1<<I)) ++Count;
     if(G->Wingman && G->Wingman->bDeployed) { Box(1190,417,380,73,Panel); Label("02 / ASUKA / "+G->Wingman->OrderName(),1205,431,Amber,.44f); Label(FString::Printf(TEXT("INTEGRITY %.0f  /  Y CALL"),G->Wingman->Integrity),1205,461,White,.48f); }
     if(!G->bWorldEncounter) { Box(395,91,790,38,Panel);
@@ -233,11 +244,18 @@ void AEvaHUD::DrawWorld(AEvaGameMode* G)
         Label(I==3 ? "RAMIEL / BEAM ENCOUNTER" : I==1 ? "SHAMSHEL / WHIP ENCOUNTER" : "SACHIEL / SERVICE + ENCOUNTER",MX-60,MY+25,Muted,.39f);
     }
     FVector Local=P->GetActorLocation()-G->WorldCenter;
+    for(int I=0;I<G->SupplyPositions.Num();++I)
+    {
+        FVector Supply=G->SupplyPositions[I]-G->WorldCenter;
+        float MX=X+(Supply.X/81000+.5f)*W, MY=Y+(.5f-Supply.Y/81000)*H;
+        Box(MX-3,MY-3,6,6,G->SupplyMask&(1<<I) ? Muted:Cyan);
+    }
     float PX=X+(Local.X/81000+.5f)*W,PY=Y+(.5f-Local.Y/81000)*H;
     Box(PX-4,PY-4,8,8,Cyan); Label("EVA-01",PX+10,PY+5,Cyan,.5f);
     Label("NORTH",690,256,Muted,.45f);
     Label("GREEN / SERVICE    AMBER / SELECTED DISTRICT    CYAN / YOU",309,700,White,.55f);
-    Label("Survey and contract totals save automatically. Optional encounters can be repeated.",309,747,Muted,.49f);
+    int Supplies=0; for(int I=0;I<3;++I) if(G->SupplyMask&(1<<I)) ++Supplies;
+    Label(FString::Printf(TEXT("CENTRAL / %d OF 3 SUPPLIES   ARMORY SOUTH   EVACUATION ROUTE EAST"),Supplies),309,747,Cyan,.49f);
 }
 
 void AEvaHUD::DrawControls()

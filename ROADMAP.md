@@ -1,8 +1,8 @@
 # Recommended development path
 
-The next milestone should be **v0.9: Eva movement, animation, and combat feel**. The current prototype already connects exploration, three Angel encounters, equipment, cockpit view, and an AI companion. The largest visible gap is the component-based character animation: the units need articulated movement, convincing contact with the ground, and clear transitions between actions.
+The user selected **the detailed Tokyo-3 district first**. The v0.9 district pass implements the Central architecture kit, working armory, supply route, staged destruction, surface materials, evening light, and sound described under milestone 3. Production skeletal animation remains the next recommended major milestone after district playtesting.
 
-These are proposed milestones, not completed features. Implement and playtest them in this order.
+The items below describe the wider production roadmap. The current Central pass is a first implementation of milestone 3; see the README and verification report for its delivered scope and remaining limits.
 
 ## 1. Rigged units and responsive combat — recommended next
 
