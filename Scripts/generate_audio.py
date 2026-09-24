@@ -38,4 +38,28 @@ write('CityHum', 4, lambda t,d: (math.sin(2*math.pi*48*t)*.18+math.sin(2*math.pi
 write('Collapse', 2.8, lambda t,d: (math.sin(2*math.pi*(52*t-5*t*t))*.37+rng.uniform(-1,1)*.20+math.sin(2*math.pi*133*t)*.06)*min(1,t*25)*math.exp(-t*1.4)*(1-t/d))
 write('Hydraulics', 2.6, lambda t,d: (math.sin(2*math.pi*(155*t+12*t*t))*.15+math.sin(2*math.pi*78*t)*.12+rng.uniform(-1,1)*.045)*math.sin(math.pi*t/d))
 write('MechStep', .85, lambda t,d: (math.sin(2*math.pi*(62*t-18*t*t))*.5+rng.uniform(-1,1)*.1)*min(1,t*180)*math.exp(-t*8)*(1-t/d))
-print('Generated fourteen original sound effects and ambience loops.')
+# Destruction and district ambience. Appended after the earlier effects so their random streams are unchanged.
+grains = sorted((rng.uniform(0, 1.05), rng.uniform(.25, 1), rng.uniform(40, 140)) for _ in range(70))
+def crumble(t, d):
+    value = math.sin(2*math.pi*(48*t-9*t*t))*.3*math.exp(-t*5)
+    for start, gain, decay in grains:
+        age = t-start
+        if 0 <= age < .06:
+            value += rng.uniform(-1, 1)*gain*.34*math.exp(-age*decay)
+    return value*(1-t/d)
+
+write('Crumble', 1.3, crumble)
+wash = [0.0]
+def waves(t, d):
+    swell = math.sin(math.pi*t/d*2)**2
+    wash[0] += (rng.uniform(-1, 1)-wash[0])*.045
+    return (wash[0]*1.9*(.25+.75*swell) + math.sin(2*math.pi*31*t)*.03*swell)*.8
+
+write('Waves', 8, waves)
+def cicadas(t, d):
+    pulse = max(0.0, math.sin(2*math.pi*7.5*t))**3*(.6+.4*math.sin(2*math.pi*t/d))
+    carrier = math.sin(2*math.pi*4200*t)*.5+math.sin(2*math.pi*5300*t+1.3)*.35+rng.uniform(-1, 1)*.22
+    return carrier*pulse*(.55+.45*math.sin(2*math.pi*55*t))*.2
+
+write('Cicadas', 4, cicadas)
+print('Generated seventeen original sound effects and ambience loops.')

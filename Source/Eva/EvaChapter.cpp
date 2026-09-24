@@ -206,16 +206,8 @@ void AEvaGameMode::StartBattle()
     MissionTime=0; EnemyClock=12; Telegraph=0; VulnerableTime=0; ActiveCharger=0;
     MeleeCooldown=0; LanceCooldown=0; AttackCount=0;
     BuildingsLost=0;
+    // Redeployment restores every structure, prop, and rubble pile across the city.
     ResetDistrict(); SetDistrictLighting(false);
-    for(auto& B:Buildings)
-    {
-        B.bDestroyed=false;
-        B.Mesh->SetVisibility(true);
-        FVector Scale=B.Mesh->GetComponentScale(); Scale.Z=B.Center.Z/50.f;
-        B.Mesh->SetWorldScale3D(Scale); B.Mesh->SetWorldLocation(B.Center);
-        B.Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-        for(auto* Window:B.Windows) Window->SetVisibility(true);
-    }
     for(auto& Effect:Effects) { Meshes.Remove(Effect.Mesh); Effect.Mesh->DestroyComponent(); }
     Effects.Empty();
     bDepotOpening=false; DepotOpen=0; bCannonTaken=false;
@@ -418,10 +410,11 @@ void AEvaGameMode::TickChapterAutomation(float Dt)
         bool ResetOK=false;
         if(OK)
         {
-            if(Buildings.Num()>0) DestroyNearby(Buildings[0].Center,200);
+            if(Buildings.Num()>0) { DestroyNearby(Buildings[0].Center,200); DestroyNearby(Buildings[0].Center,200); }
             StartBattle();
             ResetOK=Rules.Integrity==100 && Rules.Battery==65 && BuildingsLost==0 && !P->Loadout.bHasCannon && DepotOpen==0;
-            if(Buildings.Num()>0) ResetOK=ResetOK && !Buildings[0].bDestroyed && Buildings[0].Mesh->GetComponentLocation().Equals(Buildings[0].Center);
+            if(Buildings.Num()>0) ResetOK=ResetOK && !Buildings[0].bDestroyed && Buildings[0].DamageStage==0 && Buildings[0].Rubble.Num()==0
+                && Buildings[0].DistrictRoot->GetComponentLocation().Equals(Buildings[0].Base) && Buildings[0].Mesh->IsVisible();
             OK=OK && ResetOK;
         }
         UE_LOG(LogTemp,Display,TEXT("EVA_CHAPTER_RESULT success=%d charged=%d cannon=%d knife=%d damaged=%d victory=%d checkpoint=%d"),OK,bTestCharged,bTestCannon,bTestKnife,bTestBattleDamage,Won,ResetOK);

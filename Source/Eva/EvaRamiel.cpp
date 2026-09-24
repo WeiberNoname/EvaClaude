@@ -113,6 +113,8 @@ void AEvaGameMode::TickRamiel(float Dt)
                 FHitResult Cover; FCollisionQueryParams Query; Query.AddIgnoredActor(P);
                 const bool Blocked=GetWorld()->LineTraceSingleByChannel(Cover,Start,End,ECC_Visibility,Query);
                 if(Blocked) End=Cover.ImpactPoint;
+                // Cover absorbs the beam but takes the damage: the second beam brings it down.
+                if(Blocked) if(const int32* Struck=BuildingByComponent.Find(Cover.GetComponent())) DamageBuilding(Buildings[*Struck],Cover.ImpactPoint,1);
                 const FVector Closest=FMath::ClosestPointOnSegment(Pos,Start,End);
                 Hit |= FVector::DistSquared(Pos,Closest)<FMath::Square(440.f);
                 auto* Beam=BeamShots[I]; Beam->SetVisibility(true); Beam->SetWorldLocation((Start+End)*.5f);

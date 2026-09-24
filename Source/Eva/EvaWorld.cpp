@@ -1,6 +1,7 @@
 #include "EvaGame.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
@@ -17,42 +18,24 @@ void AEvaGameMode::BuildOpenWorld()
     bWorldBuilt=true;
     DistrictNames={TEXT("CENTRAL"),TEXT("HARBOR"),TEXT("UPLAND"),TEXT("INDUSTRIAL")};
     for(FVector Offset:{FVector(-22000,-22000,0),FVector(22000,-22000,0),FVector(-22000,22000,0),FVector(22000,22000,0)}) Districts.Add(WorldCenter+Offset);
-    Shape("Cube",WorldCenter+FVector(0,0,-100),FVector(900,900,2),FLinearColor(.035f,.07f,.065f),0,nullptr,true);
+    CityBox(WorldCenter+FVector(0,0,-100),FVector(900,900,2),FLinearColor(.05f,.08f,.05f),6,nullptr,true);
+    // Arterial roads between the districts share two instanced batches.
+    auto* Roads=CityInstances(NewSceneRoot(WorldCenter),FLinearColor(.045f,.052f,.062f),3);
+    auto* Lines=CityInstances(Roads->GetAttachParent(),FLinearColor(.65f,.56f,.36f),2);
     for(int I=-2;I<=2;++I)
     {
-        float V=I*22000;
-        Shape("Cube",WorldCenter+FVector(V,0,8),FVector(27,880,.12f),FLinearColor(.018f,.023f,.035f));
-        Shape("Cube",WorldCenter+FVector(0,V,8),FVector(880,27,.12f),FLinearColor(.018f,.023f,.035f));
+        const float V=I*22000;
+        Roads->AddInstance(FTransform(FRotator::ZeroRotator,FVector(V,0,8),FVector(27,880,.12f)));
+        Roads->AddInstance(FTransform(FRotator::ZeroRotator,FVector(0,V,8),FVector(880,27,.12f)));
         for(int J=-22;J<=22;++J)
         {
-            Shape("Cube",WorldCenter+FVector(V,J*1900,18),FVector(.18f,7,.06f),FLinearColor(.65f,.56f,.36f));
-            Shape("Cube",WorldCenter+FVector(J*1900,V,18),FVector(7,.18f,.06f),FLinearColor(.65f,.56f,.36f));
+            Lines->AddInstance(FTransform(FRotator::ZeroRotator,FVector(V,J*1900,18),FVector(.18f,7,.06f)));
+            Lines->AddInstance(FTransform(FRotator::ZeroRotator,FVector(J*1900,V,18),FVector(7,.18f,.06f)));
         }
     }
-    FRandomStream Rand(2015);
     for(int D=0;D<4;++D)
     {
         FVector Base=Districts[D];
-        for(int X=-2;X<=2;++X) for(int Y=-2;Y<=2;++Y)
-        {
-            if(X==0 || Y==0) continue;
-            if(D==0) continue; // Central uses the detailed, instanced architectural kit.
-            float H=D==0 ? Rand.FRandRange(3200,7000) : D==2 ? Rand.FRandRange(900,2200) : Rand.FRandRange(1600,3800);
-            FEvaBuilding B; B.Center=Base+FVector(X*4800,Y*4800,H*.5f);
-            FLinearColor Color=D==0 ? FLinearColor(.065f,.10f,.15f) : D==1 ? FLinearColor(.14f,.17f,.18f) : D==2 ? FLinearColor(.14f,.17f,.11f) : FLinearColor(.17f,.11f,.09f);
-            B.Mesh=Shape("Cube",B.Center,FVector(18,19,H/100),Color,0,nullptr,true);
-            B.Windows.Add(Shape("Cube",B.Center+FVector(0,0,H*.5f+40),FVector(18.6f,19.6f,.8f),FLinearColor(.015f,.025f,.035f)));
-            for(int F=1;F<H/450;++F)
-            {
-                FLinearColor Light(.10f,.4f,.44f);
-                B.Windows.Add(Shape("Cube",FVector(B.Center.X,B.Center.Y-955,F*450),FVector(15,.04f,.14f),Light,1));
-                B.Windows.Add(Shape("Cube",FVector(B.Center.X-905,B.Center.Y,F*450),FVector(.04f,16,.14f),Light,1));
-            }
-            // Vertical facade strips and rooftop equipment make the skyline readable at Eva scale.
-            B.Windows.Add(Shape("Cube",B.Center+FVector(910,0,0),FVector(.12f,1,H/100),FLinearColor(.035f,.05f,.065f)));
-            B.Windows.Add(Shape("Cube",B.Center+FVector(0,0,H*.5f+150),FVector(6,8,2.3f),FLinearColor(.05f,.055f,.065f)));
-            Buildings.Add(B);
-        }
         Shape("Cylinder",Base+FVector(0,0,30),FVector(36,36,.5f),FLinearColor(.06f,.09f,.11f));
         Shape("ArmorPylon",Base+FVector(0,0,1200),FVector(6,6,24),FLinearColor(.11f,.16f,.22f));
         for(int I=0;I<4;++I) Shape("Cube",Base+FVector(0,0,480+I*440),FVector(7.5f,7.5f,.35f),FLinearColor(.3f,1,.03f),2);
@@ -66,19 +49,13 @@ void AEvaGameMode::BuildOpenWorld()
         Sign->SetText(FText::FromString(DistrictNames[D])); Sign->SetWorldSize(125);
         Sign->SetHorizontalAlignment(EHTA_Center); Sign->SetTextRenderColor(FColor(170,255,80));
     }
-    // Harbor cranes, container yards, industrial tanks, and an upland ridgeline.
-    Shape("Cube",WorldCenter+FVector(10000,-49000,-160),FVector(1000,120,1),FLinearColor(.015f,.11f,.17f),.1f);
-    for(int I=0;I<7;++I)
-    {
-        FVector Port=WorldCenter+FVector(7000+I*4200,-36500,0);
-        Shape("Cube",Port+FVector(0,0,2200),FVector(1.8f,2.5f,44),FLinearColor(.55f,.16f,.035f));
-        Shape("Cube",Port+FVector(0,-1600,4400),FVector(2.5f,50,2.5f),FLinearColor(.55f,.16f,.035f));
-        Shape("Cylinder",Port+FVector(0,-3500,3000),FVector(.12f,.12f,28),FLinearColor(.18f,.2f,.2f));
-        Shape("Cube",Port+FVector(1400,800,450),FVector(16,8,9),FLinearColor(.18f,.28f,.29f));
-        Shape("Cylinder",Districts[3]+FVector(13000,I*1900-6000,1000),FVector(17,17,20),FLinearColor(.21f,.24f,.26f));
-    }
     Shape("TerrainRidge",WorldCenter+FVector(-53000,0,-300),FVector(230,1100,220),FLinearColor(.065f,.105f,.075f));
+    // Every district is assembled from the same destructible kit, each with its own character.
     BuildCentralDistrict();
+    BuildHarborDistrict();
+    BuildUplandDistrict();
+    BuildIndustrialDistrict();
+    BuildWorldInfrastructure();
 }
 
 void AEvaGameMode::StartOpenWorld()

@@ -66,3 +66,149 @@ for iy in range(ny):
         ridge.extend([f'f {a}/{a} {b}/{b} {c}/{c}', f'f {a}/{a} {c}/{c} {d}/{d}'])
 (out/'TerrainRidge.obj').write_text('\n'.join(ridge)+'\n')
 print('Generated the western terrain ridgeline.')
+
+# City kit and destruction meshes. Unit scale matches the engine cube (±50), so C++ scales read as metres/100.
+import random
+
+def write_mesh(name, vertices, faces, reference, smooth=False):
+    """Writes counter-clockwise faces; reference(centroid) gives the outward direction for each face."""
+    oriented = []
+    for face in faces:
+        a, b, c = (vertices[i] for i in face[:3])
+        u = [b[k]-a[k] for k in range(3)]
+        w = [c[k]-a[k] for k in range(3)]
+        normal = (u[1]*w[2]-u[2]*w[1], u[2]*w[0]-u[0]*w[2], u[0]*w[1]-u[1]*w[0])
+        centre = [sum(vertices[i][k] for i in face)/len(face) for k in range(3)]
+        outward = reference(centre)
+        oriented.append(face if sum(normal[k]*outward[k] for k in range(3)) >= 0 else face[::-1])
+    text = ['# EVA city kit', 'o '+name, 's 1' if smooth else 's off']
+    text += [f'v {x:.4f} {y:.4f} {z:.4f}' for x, y, z in vertices]
+    text += ['vt 0.5 1', 'vt 0 0', 'vt 1 0']
+    text += ['f '+' '.join(f'{v+1}/{i%3+1}' for i, v in enumerate(face)) for face in oriented]
+    (out/(name+'.obj')).write_text('\n'.join(text)+'\n')
+
+def radial(centre):
+    return centre
+
+city = random.Random(3017)
+
+# Irregular concrete chunk: a perturbed icosahedron, flattened so piles settle naturally.
+phi = (1+5**.5)/2
+ico = [(-1,phi,0),(1,phi,0),(-1,-phi,0),(1,-phi,0),(0,-1,phi),(0,1,phi),(0,-1,-phi),(0,1,-phi),(phi,0,-1),(phi,0,1),(-phi,0,-1),(-phi,0,1)]
+ico_faces = [(0,11,5),(0,5,1),(0,1,7),(0,7,10),(0,10,11),(1,5,9),(5,11,4),(11,10,2),(10,7,6),(7,1,8),(3,9,4),(3,4,2),(3,2,6),(3,6,8),(3,8,9),(4,9,5),(2,4,11),(6,2,10),(8,6,7),(9,8,1)]
+chunk = []
+for x, y, z in ico:
+    length = (x*x+y*y+z*z)**.5
+    r = 50*city.uniform(.62, 1.0)/length
+    chunk.append((x*r, y*r*city.uniform(.75, 1.0), z*r*.72))
+write_mesh('DebrisChunk', chunk, ico_faces, radial)
+
+# Broken floor slab: an irregular star-shaped outline extruded to a thin plate.
+outline = []
+for i in range(8):
+    angle = i/8*2*math.pi + city.uniform(-.22, .22)
+    r = 50*city.uniform(.55, 1.0)
+    outline.append((math.cos(angle)*r, math.sin(angle)*r))
+slab = [(0, 0, 9), (0, 0, -9)] + [(x, y, 9) for x, y in outline] + [(x, y, -9) for x, y in outline]
+slab_faces = []
+for i in range(8):
+    j = (i+1) % 8
+    slab_faces += [(0, 2+i, 2+j), (1, 10+j, 10+i), (2+i, 10+i, 10+j, 2+j)]
+write_mesh('SlabShard', slab, slab_faces, lambda c: (c[0], c[1], c[2]*20))
+
+# Pitched roof prism (ridge along Y) and a sawtooth prism with its glazed face toward +X.
+def prism(name, profile2d):
+    vertices = [(x, -50, z) for x, z in profile2d] + [(x, 50, z) for x, z in profile2d]
+    n = len(profile2d)
+    faces = [tuple(range(n)), tuple(range(n, 2*n))]
+    faces += [(i, (i+1) % n, n+(i+1) % n, n+i) for i in range(n)]
+    cx = sum(x for x, _ in profile2d)/n
+    cz = sum(z for _, z in profile2d)/n
+    write_mesh(name, vertices, faces, lambda c: (c[0]-cx, c[1], c[2]-cz))
+prism('RoofGable', [(-50, -50), (50, -50), (0, 50)])
+prism('RoofSaw', [(-50, -50), (50, -50), (50, 50)])
+
+# Jagged stump left standing after a collapse: a box whose top is torn into uneven spikes.
+n = 4
+top = {}
+stump = []
+for ix in range(n+1):
+    for iy in range(n+1):
+        edge = ix in (0, n) or iy in (0, n)
+        height = city.uniform(-20, 50) if not edge else city.uniform(-5, 50)
+        top[ix, iy] = len(stump)
+        stump.append((-50+100*ix/n, -50+100*iy/n, height))
+faces = []
+for ix in range(n):
+    for iy in range(n):
+        faces.append((top[ix, iy], top[ix+1, iy], top[ix+1, iy+1], top[ix, iy+1]))
+perimeter = [(i, 0) for i in range(n)] + [(n, i) for i in range(n)] + [(n-i, n) for i in range(n)] + [(0, n-i) for i in range(n)]
+bottom = {}
+for key in perimeter:
+    bottom[key] = len(stump)
+    x, y, _ = stump[top[key]]
+    stump.append((x, y, -50))
+for k, key in enumerate(perimeter):
+    nxt = perimeter[(k+1) % len(perimeter)]
+    faces.append((bottom[key], bottom[nxt], top[nxt], top[key]))
+faces.append(tuple(bottom[key] for key in perimeter))
+def stump_reference(c):
+    if c[2] > -49 and abs(c[0]) < 49.9 and abs(c[1]) < 49.9:
+        return (0, 0, 1)
+    if c[2] <= -49.9:
+        return (0, 0, -1)
+    return (c[0], c[1], 0)
+# Split the torn top into triangles: the random heights make quads non-planar.
+tris = []
+for face in faces:
+    if len(face) == 4 and all(stump[i][2] > -50 for i in face):
+        tris += [(face[0], face[1], face[2]), (face[0], face[2], face[3])]
+    else:
+        tris.append(face)
+write_mesh('StumpJagged', stump, tris, stump_reference)
+
+# Hyperboloid cooling tower shell with an inner wall and top lip, open at the base.
+segments, rings = 28, 12
+def tower_radius(z):
+    # Base radius 50 (unit footprint), waist 30 at z=20, lip about 35.
+    return 30*math.sqrt(1+((z-20)/52.5)**2)
+tower = []
+for inner in (0, 1):
+    for r in range(rings+1):
+        z = -50+100*r/rings
+        radius = tower_radius(z) - (2.2 if inner else 0)
+        for s in range(segments):
+            a = 2*math.pi*s/segments
+            tower.append((math.cos(a)*radius, math.sin(a)*radius, z))
+def tower_index(inner, r, s):
+    return inner*(rings+1)*segments + r*segments + s % segments
+faces, references = [], []
+for inner in (0, 1):
+    for r in range(rings):
+        for s in range(segments):
+            faces.append((tower_index(inner, r, s), tower_index(inner, r, s+1), tower_index(inner, r+1, s+1), tower_index(inner, r+1, s)))
+for s in range(segments):
+    faces.append((tower_index(0, rings, s), tower_index(0, rings, s+1), tower_index(1, rings, s+1), tower_index(1, rings, s)))
+def tower_reference(c):
+    radius = math.hypot(c[0], c[1])
+    if c[2] > 49.9:
+        return (0, 0, 1)
+    shell = tower_radius(c[2]) - 1.1
+    sign = 1 if radius > shell else -1
+    return (c[0]*sign, c[1]*sign, 0)
+write_mesh('CoolingTower', tower, faces, tower_reference, smooth=True)
+
+# Cargo ship hull: flat deck, raked bow, square stern; length on X, beam on Y.
+stations = [(-50, 1.0, 1.0), (-30, 1.0, 1.0), (25, 1.0, 1.0), (38, .82, .55), (46, .45, .18), (50, .04, .02)]
+hull = []
+for x, deck, keel in stations:
+    hull += [(x, -50*deck, 50), (x, 50*deck, 50), (x, 36*keel, -50), (x, -36*keel, -50)]
+faces = [(0, 1, 2, 3)]
+last = (len(stations)-1)*4
+faces.append((last, last+1, last+2, last+3))
+for i in range(len(stations)-1):
+    a, b = i*4, i*4+4
+    for k in range(4):
+        faces.append((a+k, a+(k+1) % 4, b+(k+1) % 4, b+k))
+write_mesh('ShipHull', hull, faces, lambda c: (c[0]*.2, c[1], c[2]))
+print('Generated seven city kit and destruction meshes.')

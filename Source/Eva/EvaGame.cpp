@@ -3,6 +3,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
@@ -269,9 +270,7 @@ UStaticMeshComponent* AEvaGameMode::Shape(const FString& Kind,FVector P,FVector 
         VisualRoot->RegisterComponent();
     }
     auto* Mesh=NewObject<UStaticMeshComponent>(Parent ? Parent->GetOwner() : VisualWorld);
-    const FString MeshPath=(Kind.StartsWith("Armor") || Kind.StartsWith("Terrain") || Kind=="AngelMask" || Kind=="RamielCrystal") ? "/Game/Models/"+Kind+"."+Kind : "/Engine/BasicShapes/"+Kind+"."+Kind;
-    if(!MeshCache.Contains(Kind)) MeshCache.Add(Kind,LoadObject<UStaticMesh>(nullptr,*MeshPath));
-    Mesh->SetStaticMesh(MeshCache[Kind]);
+    Mesh->SetStaticMesh(KitMesh(Kind));
     Mesh->SetMobility(EComponentMobility::Movable);
     Mesh->SetupAttachment(Parent ? Parent : VisualWorld->GetRootComponent());
     Mesh->SetRelativeLocation(P);
@@ -320,7 +319,15 @@ void AEvaGameMode::BeginPlay()
 {
     Super::BeginPlay();
     Surface=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Materials/M_Surface.M_Surface"));
+    CitySurface=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Materials/M_City.M_City"));
+    DustSurface=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Materials/M_Dust.M_Dust"));
+    // One shared material drives every aviation obstruction light, so a single parameter blinks them all.
+    AviationMaterial=UMaterialInstanceDynamic::Create(CitySurface ? CitySurface:Surface,this);
+    AviationMaterial->SetVectorParameterValue(TEXT("Color"),FLinearColor(1,.05f,.03f));
+    AviationMaterial->SetScalarParameterValue(TEXT("SurfaceType"),2);
+    AviationMaterial->SetScalarParameterValue(TEXT("Glow"),4);
     BuildCity();
+    ParticleMesh(0);
     BuildAngel();
     BuildShamshel();
     BuildRamiel();
@@ -381,19 +388,30 @@ void AEvaGameMode::BuildCity()
     {
         float PX=X*2800+1400, PY=Y*2800+1400;
         if(FMath::Abs(PX)<1900 && PY>-8200 && PY<8000) continue;
+        // Draw in the original order so the story city keeps its layout, cover, and test positions.
         const float H=Rand.FRandRange(700,3100);
-        FEvaBuilding B;
-        B.Center=FVector(PX,PY,H/2);
-        B.Mesh=Shape("Cube",B.Center,FVector(Rand.FRandRange(8,14),Rand.FRandRange(8,14),H/100),FLinearColor(.045f,.07f,.085f)*Rand.FRandRange(.65f,1.3f),0,nullptr,true);
-        FVector S=B.Mesh->GetRelativeScale3D();
-        B.Windows.Add(Shape("Cube",FVector(PX,PY,H+30),FVector(S.X+.3f,S.Y+.3f,.6f),FLinearColor(.1f,.12f,.13f)));
-        for(int Floor=1;Floor<int(H/230);++Floor)
-        {
-            const FLinearColor WC=Rand.FRand()>.35f ? FLinearColor(.14f,.38f,.42f) : FLinearColor(.6f,.32f,.1f);
-            B.Windows.Add(Shape("Cube",FVector(PX-S.X*50-2,PY,Floor*230),FVector(.03f,S.Y*.83f,.11f),WC,2.f));
-            B.Windows.Add(Shape("Cube",FVector(PX,PY-S.Y*50-2,Floor*230),FVector(S.X*.83f,.03f,.11f),WC,2.f));
-        }
-        Buildings.Add(B);
+        FEvaArchSpec Block;
+        Block.District=-1; Block.Height=H;
+        Block.Width=Rand.FRandRange(8,14)*100; Block.Depth=Rand.FRandRange(8,14)*100;
+        Block.Facade=FLinearColor(.045f,.07f,.085f)*Rand.FRandRange(.65f,1.3f)*3.4f;
+        for(int Floor=1;Floor<int(H/230);++Floor) Rand.FRand();
+        Block.Style=(X+4)*9+(Y+4);
+        Block.Accent=FLinearColor(.06f,.08f,.09f);
+        BuildArchitecture(FVector(PX,PY,0),Block);
+    }
+    // Street kit for the story city: pavements, kerbside lights and markings, clear of the telephone and car.
+    auto* Streets=NewSceneRoot(FVector::ZeroVector);
+    auto* Pave=CityInstances(Streets,FLinearColor(.2f,.21f,.21f));
+    for(int X=-4;X<=4;++X) for(int Side:{-1,1})
+    {
+        Pave->AddInstance(FTransform(FRotator::ZeroRotator,FVector(X*2800+Side*470,0,14),FVector(2.2f,290,.2f)));
+        Pave->AddInstance(FTransform(FRotator::ZeroRotator,FVector(0,X*2800+Side*470,15),FVector(290,2.2f,.2f)));
+    }
+    for(float Y=-9100;Y<=9800;Y+=1400) for(int Side:{-1,1})
+    {
+        const FVector Light(Side*430,Y,0);
+        if(FVector::Dist2D(Light,PhonePosition)<900 || FVector::Dist2D(Light,CarPosition)<900) continue;
+        AddStreetLight(-1,Light,Side>0 ? 180:0);
     }
     // Monumental perimeter and evacuation beacons establish the arena boundary.
     for(int I=-7;I<=7;++I)
@@ -534,7 +552,8 @@ void AEvaGameMode::Attack(bool bRanged,float Charge,bool PlayerAim)
         if(!P->Loadout.FireCannon(Rules,Charge)) { SetNotice(P->Loadout.Shells==0 ? "CANNON EMPTY // R RELOAD / E SERVICE FOR RESERVES" : "INSUFFICIENT POWER"); return; }
     }
     else if(!Rules.Spend(1.2f)) { SetNotice("INSUFFICIENT POWER"); return; }
-    if(bRanged && HitStructure) for(auto& Building:Buildings) if(Building.Mesh==HitStructure && Building.DistrictRoot) { DamageDistrictBuilding(Building); break; }
+    // Cannon rounds that strike a structure damage it; a charged round can fell it outright.
+    if(bRanged && HitStructure) if(const int32* Struck=BuildingByComponent.Find(HitStructure)) DamageBuilding(Buildings[*Struck],End,Charge>=.75f ? 2:1);
     P->bCharging=false;
     Cooldown=bRanged ? (Charge>.1f ? 1.1f : .55f) : .55f;
     EvaSound(this,bRanged ? TEXT("Lance") : TEXT("Impact"));
@@ -567,31 +586,13 @@ void AEvaGameMode::Attack(bool bRanged,float Charge,bool PlayerAim)
     else if(Hit && !bOpenWorld && Rules.EnemyHealth<=350) SetChapter(EEvaChapter::Awakening);
 }
 
-void AEvaGameMode::DestroyNearby(FVector P,float Radius)
-{
-    for(auto& B:Buildings)
-    {
-        if(!B.bDestroyed && FVector::Dist2D(P,B.Center)<Radius)
-        {
-            if(B.DistrictRoot) { DamageDistrictBuilding(B); continue; }
-            B.bDestroyed=true; ++BuildingsLost;
-            B.Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-            FVector S=B.Mesh->GetRelativeScale3D(); S.Z=.8f;
-            B.Mesh->SetWorldScale3D(S);
-            B.Mesh->SetWorldLocation(FVector(B.Center.X,B.Center.Y,40));
-            for(auto* W:B.Windows) W->SetVisibility(false);
-            Pulse(FVector(B.Center.X,B.Center.Y,200),FLinearColor(.2f,.12f,.08f),10.f);
-        }
-    }
-}
-
 void AEvaGameMode::Tick(float Dt)
 {
     Super::Tick(Dt);
     auto* P=Pilot();
     if(!P) return;
     TickDistrict(Dt);
-    if(!bPaused) { TickChapter(Dt); TickDepot(Dt); if(Chapter==EEvaChapter::Impact) TickImpact(Dt); }
+    if(!bPaused) { TickDestruction(Dt); TickChapter(Dt); TickDepot(Dt); if(Chapter==EEvaChapter::Impact) TickImpact(Dt); }
     if(bChapterAuto || bChapterSmoke) TickChapterAutomation(Dt);
     if(FParse::Param(FCommandLine::Get(),TEXT("EvaMenuShot")))
     {

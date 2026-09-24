@@ -20,6 +20,7 @@ class UInstancedStaticMeshComponent;
 class UAudioComponent;
 class USoundAttenuation;
 class ADirectionalLight;
+class UTextRenderComponent;
 
 UCLASS()
 class UEvaWorldSave : public USaveGame
@@ -119,24 +120,95 @@ public:
     void NextWaypoint();
     void ReturnToTitle();
     void UpdateCameraOcclusion();
-    UPROPERTY() TArray<UStaticMeshComponent*> CameraOccluders;
+    UPROPERTY() TArray<USceneComponent*> CameraOccluders;
     float ComboTime = 0;
     int32 KnifeCombo = 0;
     bool bSprinting = false;
     void AnimateEquipment(float Dt);
 };
 
+enum class EEvaArch : uint8 { Office, Slab, Hall, Tank, Stack, Cooling, Sphere };
+
+struct FEvaArchSpec
+{
+    EEvaArch Kind = EEvaArch::Office;
+    float Width = 2200.f, Depth = 2200.f, Height = 4000.f;
+    int32 Style = 0;
+    int32 District = -1;
+    FLinearColor Facade = FLinearColor(.29f,.32f,.31f);
+    FLinearColor Accent = FLinearColor(.08f,.12f,.14f);
+    FString Label;
+};
+
+struct FEvaRubblePiece
+{
+    int32 Batch = 0;
+    int32 Instance = 0;
+    FTransform Pose;
+};
+
+// Every city structure is assembled from the kit: a base and a crown that can break apart.
 struct FEvaBuilding
 {
     UStaticMeshComponent* Mesh = nullptr;
+    UStaticMeshComponent* CrownMesh = nullptr;
     TArray<UStaticMeshComponent*> Windows;
-    FVector Center;
-    bool bDestroyed = false;
+    TArray<UStaticMeshComponent*> Lights;
+    UInstancedStaticMeshComponent* Scars[2] = {nullptr, nullptr};
+    UMaterialInterface* Skin[2] = {nullptr, nullptr};
     USceneComponent* DistrictRoot = nullptr;
-    UStaticMeshComponent* Rubble = nullptr;
+    USceneComponent* Crown = nullptr;
+    FVector Center = FVector::ZeroVector;
+    FVector Base = FVector::ZeroVector;
+    FVector2D Extent = FVector2D::ZeroVector;
+    float Height = 0, Split = 0, MaxTilt = 0;
+    bool bDestroyed = false;
     int32 DamageStage = 0;
-    float CollapseTime = 0;
+    int32 District = -1;
+    float CollapseTime = 0, SmokeClock = 0, Smolder = 0;
+    EEvaArch Kind = EEvaArch::Office;
+    FVector FallDirection = FVector::ForwardVector;
+    FVector SmokePoint = FVector::ZeroVector;
     FLinearColor FacadeColor;
+    TArray<FEvaRubblePiece> Rubble;
+    float CollapseDuration() const { return Kind==EEvaArch::Hall ? 2.2f : Kind==EEvaArch::Tank || Kind==EEvaArch::Sphere ? 2.f : Kind==EEvaArch::Slab ? 2.8f : 3.2f; }
+    FBox Bounds() const { return FBox(Base-FVector(Extent.X,Extent.Y,0),Base+FVector(Extent.X,Extent.Y,Height)); }
+};
+
+// Pooled CPU particles drawn through one instanced batch each: debris, dust and smoke, fire.
+struct FEvaParticle
+{
+    FVector Position = FVector::ZeroVector, Velocity = FVector::ZeroVector, Scale = FVector(1);
+    FRotator Rotation = FRotator::ZeroRotator, Spin = FRotator::ZeroRotator;
+    float Age = 0, Life = 1, Gravity = 0, Drag = 0, Growth = 0, Alpha = 1, Bright = 1;
+    int32 Slot = INDEX_NONE;
+};
+
+struct FEvaParticleBatch
+{
+    UInstancedStaticMeshComponent* Mesh = nullptr;
+    TArray<FEvaParticle> Live;
+    TArray<int32> Free;
+    bool bFades = false;
+};
+
+// Street-scale details the Evas can knock over: trees, houses, cars, lights, poles and containers.
+enum class EEvaBreak : uint8 { Flatten, Topple, Hide, Drop, Scatter };
+
+struct FEvaPropPart
+{
+    UInstancedStaticMeshComponent* Batch = nullptr;
+    int32 Instance = 0;
+    FTransform Rest;
+    EEvaBreak Mode = EEvaBreak::Topple;
+};
+
+struct FEvaProp
+{
+    FVector Position = FVector::ZeroVector;
+    float Radius = 300;
+    bool bBroken = false;
+    TArray<FEvaPropPart> Parts;
 };
 
 struct FEvaEffect
@@ -280,19 +352,59 @@ public:
     void TickCompanionTest(float Dt);
     void BuildCity();
     void BuildCentralDistrict();
-    void BuildCentralTower(FVector Base,float Height,int32 Style);
     void TickDistrict(float Dt);
     void SetDistrictLighting(bool Enabled);
-    void DamageDistrictBuilding(FEvaBuilding& Building);
     void ResetDistrict();
     bool DistrictInteract();
     FString DistrictPrompt() const;
     UMaterialInstanceDynamic* DistrictMaterial(FLinearColor Color,int32 Type,float Glow=0);
-    UStaticMeshComponent* CityBox(FVector Position,FVector Scale,FLinearColor Color,int32 Type=0,USceneComponent* Parent=nullptr,bool Collision=false,float Glow=0);
-    UInstancedStaticMeshComponent* CityInstances(USceneComponent* Parent,FLinearColor Color,int32 Type=0,float Glow=0);
-    void CitySign(USceneComponent* Parent,FVector Position,const FString& Text,float Size,FColor Color,FRotator Rotation=FRotator(0,-90,0));
+    UStaticMeshComponent* CityBox(FVector Position,FVector Scale,FLinearColor Color,int32 Type=0,USceneComponent* Parent=nullptr,bool Collision=false,float Glow=0,const FString& Kind=TEXT("Cube"));
+    UInstancedStaticMeshComponent* CityInstances(USceneComponent* Parent,FLinearColor Color,int32 Type=0,float Glow=0,const TCHAR* MeshKind=TEXT("Cube"));
+    UTextRenderComponent* CitySign(USceneComponent* Parent,FVector Position,const FString& Text,float Size,FColor Color,FRotator Rotation=FRotator(0,-90,0));
     void DistrictSound(const TCHAR* Name,FVector Position,float Volume=1);
-    void DistrictDust(FVector Position);
+    void DistrictDust(FVector Position,float Size=1);
+    UStaticMesh* KitMesh(const FString& Kind);
+    // City kit (EvaArchitecture.cpp), district layouts (EvaCityDistricts.cpp), destruction (EvaDestruction.cpp).
+    int32 BuildArchitecture(FVector Base,const FEvaArchSpec& Spec);
+    void BuildStreetGrid(int32 District,FVector Base,int32 Blocks,bool bTrees,bool bPoles);
+    void BuildOpenBlock(int32 District,FVector Center,bool bPark);
+    void BuildHarborDistrict();
+    void BuildUplandDistrict();
+    void BuildIndustrialDistrict();
+    void BuildWorldInfrastructure();
+    UInstancedStaticMeshComponent* PropBatch(int32 District,FLinearColor Color,int32 Type,float Glow=0,const TCHAR* MeshKind=TEXT("Cube"),bool bShadow=false);
+    int32 AddProp(FVector Position,float Radius);
+    void AddPropPart(int32 Prop,UInstancedStaticMeshComponent* Batch,const FTransform& Pose,EEvaBreak Mode,FLinearColor Tint=FLinearColor::White);
+    void AddTree(int32 District,FVector Position,float Scale=1);
+    void AddHouse(int32 District,FVector Position,float Width,float Depth,bool bTurned,FLinearColor Wall,FLinearColor Roof);
+    void AddCar(int32 District,FVector Position,float Yaw,FLinearColor Paint);
+    void AddStreetLight(int32 District,FVector Position,float Yaw);
+    void AddUtilityLine(int32 District,FVector From,FVector To,int32 Poles);
+    void AddVending(int32 District,FVector Position,float Yaw,FLinearColor Face);
+    void AddContainerStack(int32 District,FVector Position,int32 Rows,int32 Tiers,bool bTurned);
+    void BreakProp(int32 Index,FVector From);
+    void BreakPropsNear(FVector Position,float Radius);
+    void DamageBuilding(FEvaBuilding& Building,FVector Impact,int32 Stages=1);
+    void CollapseRubble(FEvaBuilding& Building);
+    void TickDestruction(float Dt);
+    void TickCollapse(FEvaBuilding& Building,float Dt);
+    void ResetCity();
+    UInstancedStaticMeshComponent* ParticleMesh(int32 Batch);
+    void SpawnParticle(int32 Batch,FVector Position,FVector Velocity,FVector Scale,float Life,float Gravity=0,float Growth=0,float Bright=1,FLinearColor Tint=FLinearColor::White,float Alpha=1);
+    void DebrisBurst(FVector Position,FVector Direction,int32 Count,float Speed,FLinearColor Tint);
+    void SmokePuff(FVector Position,float Size,float Darkness);
+    TMap<UPrimitiveComponent*,int32> BuildingByComponent;
+    UPROPERTY() TArray<UInstancedStaticMeshComponent*> RubbleBatches;
+    TArray<FEvaParticleBatch> ParticleBatches;
+    TArray<FEvaProp> Props;
+    TMap<FIntPoint,TArray<int32>> PropGrid;
+    TMap<FString,UInstancedStaticMeshComponent*> PropBatches;
+    UPROPERTY() UMaterialInstanceDynamic* AviationMaterial;
+    UPROPERTY() TArray<UAudioComponent*> DistrictLoops;
+    TArray<float> DistrictLoopVolumes;
+    float CityClock=0, CrumbleClock=0, SteamClock=0;
+    int32 PropsBroken=0;
+    TArray<int32> SteamVents;
     UPROPERTY() UMaterialInterface* CitySurface;
     UPROPERTY() UMaterialInterface* DustSurface;
     UPROPERTY() TMap<FString,UMaterialInstanceDynamic*> CityMaterials;
@@ -312,7 +424,7 @@ public:
     bool bCityArmoryOpening=false;
     int32 SupplyMask=0;
     bool bDistrictTest=false, bDistrictDone=false, bDistrictOK=true;
-    int32 DistrictTestStep=0, DistrictTestBuilding=INDEX_NONE;
+    int32 DistrictTestStep=0, DistrictTestBuilding=INDEX_NONE, DistrictTestAux=INDEX_NONE, DistrictTestProp=INDEX_NONE;
     float DistrictTestTime=0, DistrictCollapseStamp=0;
     int32 DistrictMeshCount=0;
     double DistrictFrameStamp=0;

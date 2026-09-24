@@ -228,13 +228,21 @@ void AEvaHUD::DrawWorld(AEvaGameMode* G)
     int Count=0; for(int I=0;I<4;++I) if(G->SurveyMask&(1<<I)) ++Count;
     if(G->Wingman && G->Wingman->bDeployed) { Box(1190,417,380,73,Panel); Label("02 / ASUKA / "+G->Wingman->OrderName(),1205,431,Amber,.44f); Label(FString::Printf(TEXT("INTEGRITY %.0f  /  Y CALL"),G->Wingman->Integrity),1205,461,White,.48f); }
     if(!G->bWorldEncounter) { Box(395,91,790,38,Panel);
-    Label(FString::Printf(TEXT("SURVEY %d/4   CONTRACTS %d   M MAP / N WAYPOINT / F1 CONTROLS"),Count,G->CompletedContracts),412,102,Muted,.48f); }
+    Label(FString::Printf(TEXT("SURVEY %d/4   CONTRACTS %d   CITY LOSSES %d   M MAP / N WAYPOINT / F1 CONTROLS"),Count,G->CompletedContracts,G->BuildingsLost),412,102,Muted,.48f); }
     if(!G->bWorldMap) return;
     Box(270,155,1070,628,FLinearColor(.006f,.014f,.022f,.98f));
     Label("OPERATIONS MAP / FREE ROAM",309,182,Lime,.9f);
     Label("N / CYCLE WAYPOINT    M / CLOSE    HOME / TITLE    LIVE MAP",309,224,Muted,.55f);
     const float X=380,Y=280,W=730,H=390;
     for(int I=0;I<5;++I) { Box(X+W*I/4,Y,1,H,Muted); Box(X,Y+H*I/4,W,1,Muted); }
+    // Structures as footprints: intact in slate, burning in amber, collapsed in red.
+    for(const auto& B:G->Buildings) if(B.District>=0)
+    {
+        const FVector Lot=B.Base-G->WorldCenter;
+        const float MX=X+(Lot.X/81000+.5f)*W, MY=Y+(.5f-Lot.Y/81000)*H;
+        const float SW=FMath::Max(3.f,B.Extent.X*2/81000*W), SH=FMath::Max(3.f,B.Extent.Y*2/81000*H);
+        Box(MX-SW*.5f,MY-SH*.5f,SW,SH,B.bDestroyed ? FLinearColor(.75f,.08f,.05f,.9f):B.DamageStage ? FLinearColor(1,.45f,.09f,.8f):FLinearColor(.2f,.28f,.3f,.8f));
+    }
     for(int I=0;I<4;++I)
     {
         FVector Local=G->Districts[I]-G->WorldCenter;
@@ -253,7 +261,7 @@ void AEvaHUD::DrawWorld(AEvaGameMode* G)
     float PX=X+(Local.X/81000+.5f)*W,PY=Y+(.5f-Local.Y/81000)*H;
     Box(PX-4,PY-4,8,8,Cyan); Label("EVA-01",PX+10,PY+5,Cyan,.5f);
     Label("NORTH",690,256,Muted,.45f);
-    Label("GREEN / SERVICE    AMBER / SELECTED DISTRICT    CYAN / YOU",309,700,White,.55f);
+    Label(FString::Printf(TEXT("GREEN / SERVICE    AMBER / SELECTED    CYAN / YOU    RED / COLLAPSED %d"),G->BuildingsLost),309,700,White,.55f);
     int Supplies=0; for(int I=0;I<3;++I) if(G->SupplyMask&(1<<I)) ++Supplies;
     Label(FString::Printf(TEXT("CENTRAL / %d OF 3 SUPPLIES   ARMORY SOUTH   EVACUATION ROUTE EAST"),Supplies),309,747,Cyan,.49f);
 }
