@@ -93,6 +93,7 @@ public:
     float DashBuffer=0;
     float OcclusionTimer=0;
     FVector TestMoveInput=FVector::ZeroVector;
+    bool bTestGuard=false;
     UPROPERTY() USceneComponent* EvaRig;
     UPROPERTY() USceneComponent* CockpitRoot;
     void Lance();
@@ -209,6 +210,22 @@ struct FEvaProp
     float Radius = 300;
     bool bBroken = false;
     TArray<FEvaPropPart> Parts;
+};
+
+// A.T. field rings attached to a field root, and pooled octagonal ripples in world space.
+struct FEvaFieldRings
+{
+    USceneComponent* Root = nullptr;
+    UInstancedStaticMeshComponent* Rings = nullptr;
+    FLinearColor Color = FLinearColor(1,.3f,.06f);
+};
+
+struct FEvaRipple
+{
+    int32 Slot = INDEX_NONE;
+    FVector Center = FVector::ZeroVector, Drift = FVector::ZeroVector;
+    FQuat Rotation = FQuat::Identity;
+    float Age = 0, Delay = 0, Life = .5f, From = 0, To = 0, Peak = 1;
 };
 
 struct FEvaEffect
@@ -503,6 +520,28 @@ public:
     bool bShooterChecksOK = true;
     bool bShooterTestDone = false;
     USceneComponent* BuildField(FLinearColor Color,USceneComponent* Parent);
+    // Octagonal A.T. fields (EvaField.cpp): flowing rings at rest, ripples on contact, shatter, dissolve and restore.
+    UMaterialInstanceDynamic* FieldMaterial(FLinearColor Color);
+    FLinearColor FieldColor(const USceneComponent* Field) const;
+    void BuildFieldEffects();
+    void TickFields(float Dt);
+    FVector FieldImpact(USceneComponent* Field,FVector From,FVector To,float Strength=1);
+    void FieldBurst(USceneComponent* Field,int32 Kind,FVector Point);
+    void GuardRipple(FVector Source);
+    void SpawnRipple(FVector Center,FQuat Rotation,FLinearColor Color,float From,float To,float Life,float Delay,float Peak,FVector Drift=FVector::ZeroVector);
+    TArray<FEvaFieldRings> FieldRings;
+    TArray<FEvaRipple> Ripples;
+    TArray<int32> RippleFree;
+    UPROPERTY() UInstancedStaticMeshComponent* RippleBatch;
+    UPROPERTY() UMaterialInterface* FieldSurface;
+    UPROPERTY() USceneComponent* WatchedShield;
+    float WatchedField=100, FieldClock=0;
+    int32 FieldBursts[3]={0,0,0};
+    int32 GuardRipples=0;
+    bool bFieldTest=false, bFieldDone=false, bFieldOK=true;
+    int32 FieldTestStep=0, FieldTestMeshes=0, FieldTestRipples=0;
+    float FieldTestTime=0, FieldTestIntegrity=0;
+    void TickFieldTest(float Dt);
     void BuildChapterScenes();
     void StartImpact();
     void TickImpact(float Dt);

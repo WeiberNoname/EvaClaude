@@ -1,8 +1,8 @@
 # Recommended development path
 
-The user selected **the detailed Tokyo-3 district first**. The v0.9 district pass implements the Central architecture kit, working armory, supply route, staged destruction, surface materials, evening light, and sound described under milestone 3. Production skeletal animation remains the next recommended major milestone after district playtesting.
+The user selected **the detailed Tokyo-3 district first**. v0.9 built Central on a new architecture kit. v0.10 completes the city pass: all four free-roam districts and the story city now use one destructible kit, every structure collapses after repeated or charged attacks, and street props break under the Evas. Production skeletal animation remains the next recommended major milestone after a city playtest.
 
-The items below describe the wider production roadmap. The current Central pass is a first implementation of milestone 3; see the README and verification report for its delivered scope and remaining limits.
+The items below describe the wider production roadmap. Milestone 3's build items are implemented; its completion gate still needs the recorded human playtest and a profile on a quiet reference PC (see the README and verification report for scope and limits).
 
 ## 1. Rigged units and responsive combat — recommended next
 
@@ -24,7 +24,7 @@ The items below describe the wider production roadmap. The current Central pass 
 
 **Completion gate:** a new player can finish the mission using in-game guidance, understand why damage occurred, use every equipment interaction, and retry without losing unrelated exploration progress. Companion kills and checkpoint reloads must resolve objectives exactly once.
 
-## 3. A detailed Tokyo-3 district
+## 3. A detailed Tokyo-3 district — implemented in v0.9–v0.10, pending playtest
 
 - Build a reusable environment kit: retractable armory buildings, service structures, roads, tunnels, overhead cables, and evacuation signage.
 - Develop consistent armor materials, surface wear, evening lighting, atmospheric depth, and legible Angel effects.

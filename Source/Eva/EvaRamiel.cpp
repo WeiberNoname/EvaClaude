@@ -33,7 +33,7 @@ void AEvaGameMode::BuildRamiel()
         RamielPetals.Add(Petal);
     }
     RamielCore=Shape("Sphere",FVector(0,-1300,0),FVector(6),FLinearColor(.95f,.02f,.12f),1.7f,RamielRoot);
-    RamielField=BuildField(FLinearColor(.1f,.6f,1),RamielRoot);
+    RamielField=BuildField(FLinearColor(1,.36f,.08f),RamielRoot);
     RamielField->SetRelativeScale3D(FVector(1.4f));
     for(int I=0;I<3;++I)
     {
@@ -126,6 +126,7 @@ void AEvaGameMode::TickRamiel(float Dt)
             {
                 bool Guard=P->bGuard && FVector::DotProduct(P->GetActorForwardVector(),(EnemyPosition-P->GetActorLocation()).GetSafeNormal2D())>.25f;
                 Rules.ReceiveHit(Enraged ? 40:32,Guard,P->DodgeTime>0);
+                if(Guard && P->DodgeTime<=0) GuardRipple(EnemyPosition);
                 if(P->DodgeTime<=0) HitFlash=.35f;
             }
             for(auto* Lane:BeamWarnings) Lane->SetVisibility(false);

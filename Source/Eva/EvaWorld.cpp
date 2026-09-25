@@ -66,6 +66,7 @@ void AEvaGameMode::StartOpenWorld()
     bCompanionTest=FParse::Param(FCommandLine::Get(),TEXT("EvaCompanionTest"));
     bDynamicTest=FParse::Param(FCommandLine::Get(),TEXT("EvaDynamicTest"));
     bDistrictTest=FParse::Param(FCommandLine::Get(),TEXT("EvaDistrictTest"));
+    bFieldTest=FParse::Param(FCommandLine::Get(),TEXT("EvaFieldTest"));
     BuildOpenWorld(); Chargers.Empty();
     SetDistrictLighting(true);
     for(FVector D:Districts) Chargers.Add(D+FVector(0,0,100));
@@ -74,8 +75,8 @@ void AEvaGameMode::StartOpenWorld()
     Pilot()->Loadout.AcquireCannon(); bCannonTaken=true;
     AngelRoot->SetVisibility(false,true); EnemyShield->SetVisibility(false,true);
     SurveyMask=0; CompletedContracts=0;
-    FString Slot=bWorldTest ? TEXT("EvaFreeRoam_Test") : bShooterTest ? TEXT("EvaShooter_Test") : bDynamicTest ? TEXT("EvaDynamic_Test") : bCompanionTest ? TEXT("EvaCompanion_Test") : bDistrictTest ? TEXT("EvaDistrict_Test") : TEXT("EvaFreeRoam");
-    if(!bWorldTest && !bShooterTest && !bDynamicTest && !bCompanionTest && !bDistrictTest && UGameplayStatics::DoesSaveGameExist(Slot,0)) if(auto* Save=Cast<UEvaWorldSave>(UGameplayStatics::LoadGameFromSlot(Slot,0)))
+    FString Slot=bWorldTest ? TEXT("EvaFreeRoam_Test") : bShooterTest ? TEXT("EvaShooter_Test") : bDynamicTest ? TEXT("EvaDynamic_Test") : bCompanionTest ? TEXT("EvaCompanion_Test") : bDistrictTest ? TEXT("EvaDistrict_Test") : bFieldTest ? TEXT("EvaField_Test") : TEXT("EvaFreeRoam");
+    if(!bWorldTest && !bShooterTest && !bDynamicTest && !bCompanionTest && !bDistrictTest && !bFieldTest && UGameplayStatics::DoesSaveGameExist(Slot,0)) if(auto* Save=Cast<UEvaWorldSave>(UGameplayStatics::LoadGameFromSlot(Slot,0)))
     { SurveyMask=Save->SurveyMask&15; CompletedContracts=FMath::Max(0,Save->Contracts); }
     SetNotice("FREE ROAM // M MAP / N WAYPOINT / SHIFT SPRINT / E SERVICE OR OPTIONAL ENCOUNTER");
     if(bShooterTest || FParse::Param(FCommandLine::Get(),TEXT("EvaShamshel")))
@@ -93,7 +94,7 @@ void AEvaGameMode::SaveWorldProgress()
 {
     auto* Save=Cast<UEvaWorldSave>(UGameplayStatics::CreateSaveGameObject(UEvaWorldSave::StaticClass()));
     Save->SurveyMask=SurveyMask; Save->Contracts=CompletedContracts;
-    if(!UGameplayStatics::SaveGameToSlot(Save,bWorldTest ? TEXT("EvaFreeRoam_Test") : bShooterTest ? TEXT("EvaShooter_Test") : bDynamicTest ? TEXT("EvaDynamic_Test") : bCompanionTest ? TEXT("EvaCompanion_Test") : bDistrictTest ? TEXT("EvaDistrict_Test") : TEXT("EvaFreeRoam"),0)) SetNotice("PROGRESS SAVE FAILED // CURRENT SESSION CONTINUES");
+    if(!UGameplayStatics::SaveGameToSlot(Save,bWorldTest ? TEXT("EvaFreeRoam_Test") : bShooterTest ? TEXT("EvaShooter_Test") : bDynamicTest ? TEXT("EvaDynamic_Test") : bCompanionTest ? TEXT("EvaCompanion_Test") : bDistrictTest ? TEXT("EvaDistrict_Test") : bFieldTest ? TEXT("EvaField_Test") : TEXT("EvaFreeRoam"),0)) SetNotice("PROGRESS SAVE FAILED // CURRENT SESSION CONTINUES");
 }
 FString AEvaGameMode::WorldPrompt() const
 {

@@ -212,3 +212,12 @@ for i in range(len(stations)-1):
         faces.append((a+k, a+(k+1) % 4, b+(k+1) % 4, b+k))
 write_mesh('ShipHull', hull, faces, lambda c: (c[0]*.2, c[1], c[2]))
 print('Generated seven city kit and destruction meshes.')
+
+# Octagonal A.T. field ring: a flat band in the YZ plane facing +X, with flat edges at the top, bottom and sides.
+outer, inner = 50, 46.5
+octagon = []
+for k in range(8):
+    a = math.radians(22.5 + 45*k)
+    octagon += [(0, math.cos(a)*outer, math.sin(a)*outer), (0, math.cos(a)*inner, math.sin(a)*inner)]
+write_mesh('OctagonRing', octagon, [(2*k, 2*((k+1) % 8), 2*((k+1) % 8)+1, 2*k+1) for k in range(8)], lambda c: (1, 0, 0))
+print('Generated the octagonal A.T. field ring.')

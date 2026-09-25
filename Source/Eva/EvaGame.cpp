@@ -148,7 +148,7 @@ void AEvaPawn::Tick(float Dt)
     FVector Fwd = FRotator(0,CameraYaw,0).Vector();
     FVector Right = FRotationMatrix(FRotator(0,CameraYaw,0)).GetUnitAxis(EAxis::Y);
     FVector Move=G->bDynamicTest && !TestMoveInput.IsNearlyZero() ? TestMoveInput:ReadMovement();
-    bGuard = !bHuman && PC->IsInputKeyDown(EKeys::Q) && G->Rules.Battery > 0.f;
+    bGuard = !bHuman && (PC->IsInputKeyDown(EKeys::Q) || bTestGuard) && G->Rules.Battery > 0.f;
     DodgeCooldown = FMath::Max(0.f,DodgeCooldown-Dt);
     if(DashBuffer>0) { DashBuffer=FMath::Max(0.f,DashBuffer-Dt); if(DodgeCooldown<=0 && Motion.DashCharges>0) Dodge(); }
     AttackTime = FMath::Max(0.f,AttackTime-Dt);
@@ -321,6 +321,7 @@ void AEvaGameMode::BeginPlay()
     Surface=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Materials/M_Surface.M_Surface"));
     CitySurface=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Materials/M_City.M_City"));
     DustSurface=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Materials/M_Dust.M_Dust"));
+    FieldSurface=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Materials/M_Field.M_Field"));
     // One shared material drives every aviation obstruction light, so a single parameter blinks them all.
     AviationMaterial=UMaterialInstanceDynamic::Create(CitySurface ? CitySurface:Surface,this);
     AviationMaterial->SetVectorParameterValue(TEXT("Color"),FLinearColor(1,.05f,.03f));
@@ -328,6 +329,7 @@ void AEvaGameMode::BeginPlay()
     AviationMaterial->SetScalarParameterValue(TEXT("Glow"),4);
     BuildCity();
     ParticleMesh(0);
+    BuildFieldEffects();
     BuildAngel();
     BuildShamshel();
     BuildRamiel();
@@ -339,7 +341,8 @@ void AEvaGameMode::BeginPlay()
     Cable=Shape("Cylinder",FVector::ZeroVector,FVector(1),EvaPalette::Lime,2.f);
     auto* CableMaterial=UMaterialInstanceDynamic::Create(Surface,this);
     CableMaterial->SetVectorParameterValue("Color",EvaPalette::Lime); CableMaterial->SetScalarParameterValue("Glow",2); Cable->SetMaterial(0,CableMaterial);
-    PlayerShield=BuildField(EvaPalette::Lime,VisualWorld->GetRootComponent());
+    // Unit-01's own field is the same orange octagon phenomenon as an Angel's, a shade more golden.
+    PlayerShield=BuildField(FLinearColor(1,.58f,.14f),VisualWorld->GetRootComponent());
     PlayerShield->SetVisibility(false,true);
     ThreatRing=Shape("Cylinder",FVector::ZeroVector,FVector(26,26,.12f),EvaPalette::Orange,3.f);
     ThreatRing->SetVisibility(false);
@@ -352,7 +355,7 @@ void AEvaGameMode::BeginPlay()
     bChapterAuto=FParse::Param(FCommandLine::Get(),TEXT("EvaChapterTest"));
     bChapterSmoke=FParse::Param(FCommandLine::Get(),TEXT("EvaChapterShots"));
     if(bChapterAuto || bChapterSmoke) StartMission();
-    else if(FParse::Param(FCommandLine::Get(),TEXT("EvaWorld")) || FParse::Param(FCommandLine::Get(),TEXT("EvaWorldTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaShamshel")) || FParse::Param(FCommandLine::Get(),TEXT("EvaShooterTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaRamiel")) || FParse::Param(FCommandLine::Get(),TEXT("EvaDynamicTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaCompanionTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaDistrictTest")))
+    else if(FParse::Param(FCommandLine::Get(),TEXT("EvaWorld")) || FParse::Param(FCommandLine::Get(),TEXT("EvaWorldTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaShamshel")) || FParse::Param(FCommandLine::Get(),TEXT("EvaShooterTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaRamiel")) || FParse::Param(FCommandLine::Get(),TEXT("EvaDynamicTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaCompanionTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaDistrictTest")) || FParse::Param(FCommandLine::Get(),TEXT("EvaFieldTest")))
     {
         static bool bWorldAutoLaunched=false;
         if(!bWorldAutoLaunched) { bWorldAutoLaunched=true; StartOpenWorld(); }
@@ -496,22 +499,6 @@ void AEvaGameMode::BuildAngel()
     SachielRoot=AngelRoot; SachielCore=AngelCore; SachielField=EnemyShield;
 }
 
-USceneComponent* AEvaGameMode::BuildField(FLinearColor Color,USceneComponent* Parent)
-{
-    auto* Root=NewObject<USceneComponent>(Parent->GetOwner());
-    Root->SetupAttachment(Parent); Root->RegisterComponent();
-    for(int Ring=0;Ring<2;++Ring) for(int I=0;I<6;++I)
-    {
-        const float R=Ring==0 ? 1.f : .8f;
-        float A=I*PI/3.f, B=(I+1)*PI/3.f;
-        FVector From(0,FMath::Cos(A)*850*R,FMath::Sin(A)*1000*R);
-        FVector To(0,FMath::Cos(B)*850*R,FMath::Sin(B)*1000*R);
-        auto* Edge=Shape("Cylinder",(From+To)*.5f,FVector(.14f,.14f,(To-From).Size()/100),Color,2.f,Root);
-        Edge->SetRelativeRotation(FRotationMatrix::MakeFromZ(To-From).Rotator());
-    }
-    return Root;
-}
-
 void AEvaGameMode::Pulse(FVector P,FLinearColor Color,float Size)
 {
     EffectShape("Sphere",P,FVector(Size*.35f),Color,2.f,.22f,FVector(Size*1.5f));
@@ -561,8 +548,15 @@ void AEvaGameMode::Attack(bool bRanged,float Charge,bool PlayerAim)
     Charge=FMath::Clamp(Charge,0.f,1.f);
     if(!bRanged) { P->KnifeCombo=P->ComboTime>0 ? (P->KnifeCombo%3)+1 : 1; P->ComboTime=1.5f; }
     float KnifeDamage=P->KnifeCombo==3 ? 145.f : P->KnifeCombo==2 ? 105.f : 85.f;
+    const float FieldBefore=Rules.EnemyField;
     bool bCore=Hit && Rules.HitEnemy((bRanged ? 145.f*(1+Charge*1.2f)*(CoreHit ? 1.f : .65f) : KnifeDamage)*Systems.DamageScale(),bRanged ? 38.f+Charge*62.f : P->KnifeCombo==3 ? 46.f : 27.f);
     if(!bRanged && P->KnifeCombo==3) SetNotice("PROGRESSIVE KNIFE // FINISHING STRIKE");
+    if(Hit && FieldBefore>0 && EnemyShield)
+    {
+        // The round stops on the A.T. field: octagons ripple out from the point of contact, and shatter if it breaks.
+        End=FieldImpact(EnemyShield,bRanged ? Start:P->GetActorLocation()+FVector(0,0,400),End,bRanged ? 1+Charge:.8f);
+        if(Rules.EnemyField<=0) { FieldBurst(EnemyShield,0,End); WatchedField=0; }
+    }
     Pulse(End,EvaPalette::Orange,Hit ? (bCore ? 4.f : 2.f) : .8f);
     if(Hit) P->HitMarkerTime=.18f;
     if(Hit && !bCore && Rules.EnemyField<=0)
@@ -592,7 +586,7 @@ void AEvaGameMode::Tick(float Dt)
     auto* P=Pilot();
     if(!P) return;
     TickDistrict(Dt);
-    if(!bPaused) { TickDestruction(Dt); TickChapter(Dt); TickDepot(Dt); if(Chapter==EEvaChapter::Impact) TickImpact(Dt); }
+    if(!bPaused) { TickDestruction(Dt); TickFields(Dt); TickChapter(Dt); TickDepot(Dt); if(Chapter==EEvaChapter::Impact) TickImpact(Dt); }
     if(bChapterAuto || bChapterSmoke) TickChapterAutomation(Dt);
     if(FParse::Param(FCommandLine::Get(),TEXT("EvaMenuShot")))
     {
@@ -636,6 +630,7 @@ void AEvaGameMode::Tick(float Dt)
     if(bDynamicTest) TickDynamicTest(Dt);
     if(bCompanionTest) TickCompanionTest(Dt);
     if(bDistrictTest) TickDistrictTest(Dt);
+    if(bFieldTest) TickFieldTest(Dt);
     if(!IsActive()) return;
     MissionTime+=Dt;
     if(FParse::Param(FCommandLine::Get(),TEXT("EvaSystemsTest")))
@@ -750,6 +745,7 @@ void AEvaGameMode::Tick(float Dt)
                 FVector TowardEnemy=(EnemyPosition-Pos).GetSafeNormal2D();
                 const bool bFacing=FVector::DotProduct(P->GetActorForwardVector(),TowardEnemy)>.25f;
                 Rules.ReceiveHit(AttackCount%3==0 ? 32.f : 20.f,P->bGuard && bFacing,P->DodgeTime>0 || (!P->bGrounded && Pos.Z>1450));
+                if(P->bGuard && bFacing && P->DodgeTime<=0) GuardRipple(EnemyPosition);
                 if(P->DodgeTime<=0 && (P->bGrounded || Pos.Z<=1450)) HitFlash=.3f;
             }
             EnemyClock=Rules.EnemyHealth<500 ? 2.f : 3.2f;

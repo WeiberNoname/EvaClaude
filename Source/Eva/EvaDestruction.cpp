@@ -273,7 +273,6 @@ void AEvaGameMode::TickCollapse(FEvaBuilding& B,float Dt)
         else Pose.AddToTranslation(FVector(0,0,-(1-Rise)*Drop));
         RubbleBatches[Piece.Batch]->UpdateInstanceTransform(Piece.Instance,Pose,false,false,true);
     }
-    for(auto* Batch:RubbleBatches) Batch->MarkRenderStateDirty();
     // A ground-hugging dust wave rolls out while a column sheds from the crumbling top.
     const float Size=DustScale(B);
     const FVector Top=B.Base+FVector(0,0,FMath::Max(250.f,B.Height-Sink));
@@ -428,7 +427,6 @@ void AEvaGameMode::TickDestruction(float Dt)
             Pool.Mesh->UpdateInstanceTransform(Q.Slot,FTransform(Q.Rotation,Q.Position,Q.Scale*Size),false,false,true);
             if(Pool.bFades) Pool.Mesh->SetCustomDataValue(Q.Slot,0,Q.Alpha*FMath::Min(1.f,T*7)*FMath::Pow(1-T,1.4f));
         }
-        Pool.Mesh->MarkRenderStateDirty();
     }
 }
 

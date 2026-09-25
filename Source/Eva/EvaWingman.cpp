@@ -101,6 +101,12 @@ void AEvaWingman::Tick(float Dt)
             const float Before=G->Rules.EnemyField;
             G->Rules.HitEnemy(Order==EEvaOrder::Assault ? 62:42,12);
             if(Before>0 && G->Rules.EnemyField<=0) G->VulnerableTime=8;
+            // Unit-02's rounds splash against the Angel's field the same way the player's do.
+            if(Before>0)
+            {
+                End=G->FieldImpact(G->EnemyShield,Start,End,.75f);
+                if(G->Rules.EnemyField<=0) { G->FieldBurst(G->EnemyShield,0,End); G->WatchedField=0; }
+            }
             auto* Beam=G->EffectShape("Cylinder",(Start+End)*.5f,FVector(.18f,.18f,(End-Start).Size()/100),FLinearColor(1,.18f,.025f),3,.1f);
             Beam->SetWorldRotation(FRotationMatrix::MakeFromZ(End-Start).Rotator()); G->Pulse(End,FLinearColor(1,.19f,.03f),1.2f);
             G->ResolveWorldVictory();

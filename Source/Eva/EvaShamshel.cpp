@@ -112,6 +112,7 @@ void AEvaGameMode::TickShamshel(float Dt)
             {
                 const bool Facing=FVector::DotProduct(P->GetActorForwardVector(),(EnemyPosition-Pos).GetSafeNormal2D())>.25f;
                 Rules.ReceiveHit(Sweep ? 24.f:32.f,P->bGuard && Facing,P->DodgeTime>0 || (Sweep && !P->bGrounded && Pos.Z>1450));
+                if(P->bGuard && Facing && P->DodgeTime<=0) GuardRipple(EnemyPosition);
                 if(P->DodgeTime<=0 && !(Sweep && !P->bGrounded && Pos.Z>1450)) HitFlash=.3f;
             }
             Pulse(ThreatPosition+FVector(0,0,250),FLinearColor(1,.1f,.3f),12);

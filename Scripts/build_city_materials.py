@@ -1,4 +1,4 @@
-"""Generate reusable world-space architectural surfaces and soft collapse dust."""
+"""Generate world-space architectural surfaces, soft collapse dust, and the additive A.T. field glow."""
 import unreal
 
 edit = unreal.MaterialEditingLibrary
@@ -128,3 +128,27 @@ edit.connect_material_property(fade, '', unreal.MaterialProperty.MP_OPACITY)
 edit.recompile_material(dust)
 unreal.EditorAssetLibrary.save_loaded_asset(dust)
 unreal.log('EVA_CITY_MATERIALS_OK')
+
+# A.T. field: additive, unlit, two-sided glow. Instanced rings carry colour (0-2) and intensity (3) per instance.
+field = material('M_Field')
+field.set_editor_property('blend_mode', unreal.BlendMode.BLEND_ADDITIVE)
+field.set_editor_property('shading_model', unreal.MaterialShadingModel.MSM_UNLIT)
+field.set_editor_property('two_sided', True)
+field.set_editor_property('used_with_instanced_static_meshes', True)
+hue = node(field, unreal.MaterialExpressionVectorParameter, parameter_name='Color', default_value=unreal.LinearColor(1, .4, .08, 1))
+power = node(field, unreal.MaterialExpressionScalarParameter, parameter_name='Intensity', default_value=3)
+ring_tint = node(field, unreal.MaterialExpressionPerInstanceCustomData3Vector, data_index=0, const_default_value=unreal.LinearColor(1, 1, 1, 1))
+ring_glow = node(field, unreal.MaterialExpressionPerInstanceCustomData, data_index=3, const_default_value=1.0)
+lit = node(field, unreal.MaterialExpressionMultiply)
+link(hue, lit, 'A')
+link(ring_tint, lit, 'B')
+bright = node(field, unreal.MaterialExpressionMultiply)
+link(lit, bright, 'A')
+link(power, bright, 'B')
+glowing = node(field, unreal.MaterialExpressionMultiply)
+link(bright, glowing, 'A')
+link(ring_glow, glowing, 'B')
+edit.connect_material_property(glowing, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+edit.recompile_material(field)
+unreal.EditorAssetLibrary.save_loaded_asset(field)
+unreal.log('EVA_FIELD_MATERIAL_OK')

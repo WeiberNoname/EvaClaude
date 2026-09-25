@@ -2,11 +2,29 @@
 
 A native Unreal Engine 5.7 single-player prototype with free exploration, an optional story chapter, and a separate Third Impact cinematic. Play Shinji's arrival in Tokyo-3, meet Misato, enter the hangar, deploy Unit-01, fight a humanoid Sachiel, and reach the hospital aftermath. Original procedural placeholder art and synthesized effects; no extracted anime models, music, or voice assets.
 
-![Central defense district in the playable v0.9 prototype](Docs/Screenshots/DistrictSkyline.png)
+![A Central tower collapsing after a cannon hit in the playable v0.10 prototype](Docs/Screenshots/DistrictCollapse.png)
 
 [Cockpit preview](Docs/Screenshots/EntryPlug08.png) · [Asuka call preview](Docs/Screenshots/AsukaCall.png) · [Verified features and limitations](VERIFICATION.md) · [Recommended development roadmap](ROADMAP.md)
 
 This repository contains the Unreal project, C++ source, authored assets, asset generators, launchers, and build scripts. Packaged executables, Unreal Engine, compiler tools, caches, and local save files are excluded. A fresh clone must be built and packaged before the one-click launchers work.
+
+## v0.10: Tokyo-3 city revision
+
+The whole city is now built from one destructible architecture kit. Central, Harbor, Upland, Industrial, and the story-mode city were rebuilt with it, and every structure in them can be damaged and brought down.
+
+[Skyline](Docs/Screenshots/DistrictSkyline.png) · [Rubble and smoke](Docs/Screenshots/DistrictRubble.png) · [Harbor](Docs/Screenshots/DistrictHarbor.png) · [Upland](Docs/Screenshots/DistrictUpland.png) · [Industrial chimney falling](Docs/Screenshots/DistrictIndustrial.png)
+
+- **Collapse after attack:** the first cannon round, Angel strike, or Ramiel beam blows holes in the struck face, starts fires, cuts the building's lights, and sends up smoke. The second hit brings it down: the upper section hinges away from the blow while the frame sinks into a rolling dust cloud. A charged shot (held to at least 75%) fells an intact building in one hit. Each collapse leaves a jagged stump and a rubble mound with floor slabs, rebar, and embers, and it smoulders for about twenty seconds. Fuel tanks and gas spheres burst into fireballs; chimneys topple across the street. Rubble never blocks movement.
+- **Street details react:** trees, streetlights, utility poles and their wires, parked cars, vending machines, houses, shrine gates, and container stacks are knocked down or crushed when Unit-01 or Unit-02 walks through them, when a strike lands nearby, or when a building falls on them.
+- **Central:** sixteen towers with punched, ribbon, finned, or curtain-wall facades, shopfront podiums, blade signs, rooftop billboards, helipads, water tanks, and blinking aviation lights, plus plazas with fountains and evacuation shelter entrances.
+- **Harbor:** warehouses, fuel tanks, offices, a container yard, gantry cranes on rails, two freighters, a lighthouse, and a quay wall above animated water.
+- **Upland:** danchi apartment slabs with balconies, pitched-roof houses behind block walls, overhead utility lines, a junior high school with its sports ground, a hilltop shrine, and parks.
+- **Industrial:** sawtooth-roof plants, smokestacks and a cooling tower that release steam, LNG spheres, a tank farm behind a pipe rack, a conveyor bridge, and a substation.
+- **City frame:** an elevated expressway with stalled evacuation traffic crosses between the districts, and mountains now enclose the city to the north and east. Surf, cicadas, and machinery ambience play near their districts.
+- **Map and HUD:** **M** shows every structure as intact, burning, or collapsed. The free-roam bar counts city losses.
+- **Octagonal A.T. fields:** every field (Sachiel, Shamshel, Ramiel, and Unit-01's **Q** guard) is now a set of concentric orange octagons. At rest the rings flow faintly outward from the centre. A blocked round, knife strike, or Unit-02 shot stops on the field, and bright octagons ripple out from the point of contact. A breach shatters the field into octagonal fragments; an Angel lowering its own field lets it dissolve, and regeneration folds the rings back inward. Blocking a strike with **Q** ripples Unit-01's golden field, and **X** sends octagons from Unit-01 into the Angel's barrier before it breaks. [Contact ripple](Docs/Screenshots/ATFieldRipple.png) · [Anti-A.T. pulse](Docs/Screenshots/ATFieldNeutralize.png)
+
+Destruction is authored animation on instanced geometry, not a Chaos or structural simulation. Like the supply route, it resets when you redeploy.
 
 ## v0.9: Central defense district
 
@@ -16,7 +34,7 @@ Central now has sixteen detailed towers with instanced windows, facade frames, r
 
 - **Armory 07:** travel south from Central's green service station. Press **E** at the marked approach to retract the doors and raise the weapon elevator. Press **E** again to retrieve the cannon and refill its ammunition. The rack replenishes after twelve seconds.
 - **Emergency supply route:** follow the cyan markers along the eastern road. Three caches each restore up to 25 power and eight reserve shells. Recover all three to repair both Evas by up to 30 integrity. Each cache can be used once per deployment; redeploying resets this route.
-- **Staged destruction:** a cannon round or Angel blast damages a Central tower and knocks out facade elements. A second hit starts a two-second collapse with spatial impact audio, pooled dust, and rubble confined to the original lot. Rubble does not block the Eva. Other districts retain their existing destruction behavior.
+- **Staged destruction:** a cannon round or Angel blast damages a Central tower and knocks out facade elements. A second hit starts a collapse with spatial impact audio, pooled dust, and rubble. Rubble does not block the Eva. v0.10 extends this to every district and replaces the original squash with the collapse described above.
 - **Navigation:** select Central with **N** to see its armory and nearest available cache markers. **M** shows cache locations and the route completion count.
 
 The new district is built from a reusable procedural architecture kit. Collapse is an authored transformation with visual debris, not a full structural or Chaos physics simulation. Supply progress is session-only; survey and contract totals retain their existing save behavior.
@@ -82,7 +100,7 @@ At street level, follow the cyan marker to the telephone, press E, then reach Mi
 
 ## Free-roam world
 
-Explore a connected area approximately 810 by 810 metres across four districts: Central, Harbor, Upland, and Industrial. The city is fictional; this implements free exploration without a fixed story, rather than a geographical reconstruction of a real place.
+Explore a connected area approximately 810 by 810 metres across four districts: the Central defense towers, the Harbor docks, the residential Upland, and the Industrial plants. The city is fictional; this implements free exploration without a fixed story, rather than a geographical reconstruction of a real place.
 
 - Green service pylons restore integrity, ammunition, and power when you press **E** nearby.
 - Amber beacons start optional, repeatable Angel encounters. Defeating the Angel returns you to exploration; withdrawing beyond 250 metres from the encounter district disengages it.
@@ -118,7 +136,7 @@ Run `Scripts/VerifyImpact.ps1` after packaging to capture and verify all four st
 - **Progressive knife:** press F to open the shoulder compartment and draw the blade. Four strikes breach a full field. Exposed-core damage is 85 per strike; each costs 1.2 battery seconds. It remains usable without ammunition. The cannon is holstered on the back while using the knife.
 - **Green power stations:** there are two. Approach within 13 metres and press E to attach the umbilical. Recharge is visible on the reserve meter. Press C to release it; exceeding the tether length disconnects automatically.
 
-Deployment starts with 65 reserve seconds, so connect to the nearby station first. Maximum reserve is 120 seconds. The tether warns at 85% of its 62-metre reach. Staying beyond that reach for two seconds disconnects it; retreating resets the grace period. Disconnected reserve drains at one second per second, faster while shielding. Losing all integrity or reserve ends the mission; R retries from deployment. Structures caught in enemy strikes collapse into rubble; chapter results report city losses.
+Deployment starts with 65 reserve seconds, so connect to the nearby station first. Maximum reserve is 120 seconds. The tether warns at 85% of its 62-metre reach. Staying beyond that reach for two seconds disconnects it; retreating resets the grace period. Disconnected reserve drains at one second per second, faster while shielding. Losing all integrity or reserve ends the mission; R retries from deployment. Structures caught in enemy strikes are damaged, then collapse into rubble; chapter results report city losses.
 
 ## Synchronization and anime presentation
 
@@ -156,6 +174,7 @@ From PowerShell at the project root:
 .\Scripts\VerifyDynamic.ps1
 .\Scripts\VerifyCompanion.ps1
 .\Scripts\VerifyDistrict.ps1
+.\Scripts\VerifyField.ps1
 ```
 
 Build, test, and package scripts accept `-Engine` for another installation directory. Building requires Unreal Engine 5.7, Visual Studio's C++ toolchain, and Windows SDK. The content bootstrap creates the shared parameterized material and startup map. The city is assembled at runtime. Character armor and Ramiel combine authored OBJ meshes imported into `/Game/Models` with engine primitives. `generate_models.py` and `import_models.py` reproduce those assets. Packaging bundles the executable, assets, and runtime dependencies and creates the local Play EVA shortcut. `VerifyChapter.ps1` checks the packaged chapter, equipment, and checkpoint reset; add `-Render` to capture scene images.
@@ -169,8 +188,13 @@ Build, test, and package scripts accept `-Engine` for another installation direc
 - `EvaImpact.cpp`: separate Third Impact cinematic, replay, and scene verification.
 - `EvaSystems.cpp`: synchronization abilities, cable strain, and audiovisual feedback.
 - `EvaWorld.cpp`: connected districts, service stations, optional encounters, saves, and world verification.
-- `EvaDistrict.cpp`: Central architecture kit, world-space materials, armory, supply route, staged collapse, and spatial audio.
-- `EvaDistrictTest.cpp`: district interactions, route clearance, destruction, restart, and combined combat frame sampling.
+- `EvaArchitecture.cpp`: destructible architecture kit (offices, apartment slabs, halls, tanks, stacks, cooling towers, gas spheres) and crushable street props.
+- `EvaCityDistricts.cpp`: street grid, Harbor, Upland, Industrial, open blocks, sea and quay, expressway, and mountains.
+- `EvaDestruction.cpp`: damage stages, collapse animation, rubble, pooled debris, dust, smoke and fire, prop crushing, and reset.
+- `EvaField.cpp`: octagonal A.T. fields, contact ripples, shatter, dissolve and restore effects, and the pooled ripple batch.
+- `EvaFieldTest.cpp`: A.T. field construction, blocked hits, breach, regeneration, guard, anti-field pulse, pool bounds, and captures.
+- `EvaDistrict.cpp`: Central layout, world-space materials, armory, supply route, district ambience, and spatial audio.
+- `EvaDistrictTest.cpp`: district interactions, route clearance, collapse stages, fuel tank and chimney failure, prop crushing, district captures, restart, and combined combat frame sampling.
 - `EvaMobility.cpp`: movement integration, jumping, dashes, perspective switching, and cockpit geometry.
 - `EvaRamiel.cpp`: crystal model assembly, tracking/locked beam patterns, and counterattack windows.
 - `EvaDynamicTest.cpp`: runtime mobility, cockpit, help, Ramiel, and frame-time checks.
@@ -183,11 +207,11 @@ Build, test, and package scripts accept `-Engine` for another installation direc
 - `EvaHUD.cpp`: story captions, interaction markers, equipment HUD, and chapter results.
 - `EvaTests.cpp`: Unreal automation tests for power, damage, blocking, weapon ownership, and ammunition.
 - `Scripts/bootstrap_content.py`: repeatable editor content generation.
-- `Scripts/build_city_materials.py`: architectural surface and soft-dust material generation.
+- `Scripts/build_city_materials.py`: city surfaces (concrete, glass, metal, asphalt, water, corrugated sheet, foliage, soot, painted bands, hazard stripes, fire) with per-instance colour, fading instanced dust, and the additive A.T. field glow.
 - `Config/`: startup map, rendering, and packaging defaults.
 
 ## Scope and next production work
 
-This is a condensed chapter flow plus a finite exploration sandbox with captioned dialogue and fourteen original synthesized effects and ambience loops. It uses authored faceted armor, procedural character assembly, and component animation. Production skeletal animation and detailed character textures remain unfinished. Voice acting, full world-state saves, a full soundtrack, and further story chapters are not included. Survey/contract totals do persist. The cannon provision is a gameplay adaptation. Destruction uses geometry replacement and the cable is a visual tether, not a physics simulation. The final berserk counterattack is scripted; normal battle is player-controlled.
+This is a condensed chapter flow plus a finite exploration sandbox with captioned dialogue and seventeen original synthesized effects and ambience loops. It uses authored faceted armor, procedural character assembly, and component animation. Production skeletal animation and detailed character textures remain unfinished. Voice acting, full world-state saves, a full soundtrack, and further story chapters are not included. Survey/contract totals do persist. The cannon provision is a gameplay adaptation. Destruction uses authored collapse animation and instanced rubble, and the cable is a visual tether; neither is a physics simulation. The final berserk counterattack is scripted; normal battle is player-controlled.
 
 The integration harness can run with `-EvaChapterTest` for a headless complete playthrough, or `-EvaChapterShots` for rendered scene captures. It visits the telephone and car, advances dialogue, recharges, opens the armory, retrieves and fires the cannon, draws the knife, damages Sachiel, and reaches the ending. Human playtesting is still needed for pacing and combat feel.

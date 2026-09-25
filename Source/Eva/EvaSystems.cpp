@@ -26,14 +26,11 @@ void AEvaGameMode::UseAntiField()
     VulnerableTime=8;
     SetNotice("ANTI-A.T. FIELD // BARRIER NEUTRALIZED FOR 8 SECONDS");
     SystemSound(this,TEXT("Breach"));
-    for(int I=0;I<24;++I)
-    {
-        float A=I*2*PI/24;
-        FVector Pos=P->GetActorLocation()+FVector(FMath::Cos(A)*1400,FMath::Sin(A)*1400,150);
-        auto* Ray=Shape("Cylinder",Pos,FVector(.13f,.13f,9),FLinearColor(1,.35f,.025f),3);
-        Ray->SetWorldRotation(FRotator(0,0,90));
-        Effects.Add({Ray,.65f,.65f,FVector(.1f,.1f,12)});
-    }
+    // Unit-01 projects its own field into the Angel's: octagons travel across the gap, then the barrier shatters.
+    const FVector Chest=P->GetActorLocation()+FVector(0,0,300), Toward=EnemyAimPoint()-Chest;
+    for(int I=0;I<5;++I) SpawnRipple(Chest,Toward.Rotation().Quaternion(),FieldColor(PlayerShield),250,1100+I*260,.55f,I*.07f,2.4f,Toward/.62f);
+    if(EnemyShield) FieldBurst(EnemyShield,0,EnemyShield->GetComponentLocation());
+    WatchedField=0;
 }
 void AEvaGameMode::TickSystems(float Dt)
 {
